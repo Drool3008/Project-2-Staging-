@@ -1,0 +1,229 @@
+@startuml user_role_subsystem
+
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 80
+skinparam classBackgroundColor White
+skinparam classBorderColor Black
+
+title User and Role Management Subsystem
+footer Apache Roller - User Subsystem Analysis
+
+' NESTED ENUMS
+' (No Enums in User Subsystem files provided)
+
+' CORE DOMAIN MODELS
+
+class User <<Domain>> {
+    - id: String
+    - userName: String
+    - password: String
+    - openIdUrl: String
+    - fullName: String
+    - emailAddress: String
+    - locale: String
+    - timeZone: String
+    - enabled: Boolean
+    - activationCode: String
+    - dateCreated: Date
+    --
+    + User()
+    + hasGlobalPermission(action: String): boolean
+    + resetPassword(newPassword: String): void
+    + setActivationCode(code: String): void
+    + getEnabled(): Boolean
+}
+
+class UserRole <<Domain>> {
+    - id: String
+    - userName: String
+    - role: String
+    --
+    + UserRole(username: String, role: String)
+    + getRole(): String
+    + getUserName(): String
+}
+
+class RollerPermission <<Security>> {
+    --
+    + RollerPermission(name: String)
+    + {abstract} setActions(actions: String): void
+    + {abstract} getActions(): String
+    + getActionsAsList(): List<String>
+    + implies(p: Permission): boolean
+}
+
+class ObjectPermission <<Security>> {
+    - objectId: String
+    - objectType: String
+    - userName: String
+    - pending: boolean
+    --
+    + ObjectPermission(name: String)
+    + getObjectId(): String
+    + setPending(pending: boolean): void
+}
+
+class GlobalPermission <<Security>> {
+    + {static} ADMIN: String = "admin"
+    + {static} WEBLOG: String = "weblog"
+    + {static} LOGIN: String = "login"
+    --
+    + GlobalPermission(user: User)
+    + GlobalPermission(actions: List<String>)
+    + implies(perm: Permission): boolean
+    - actionImplies(a1: String, a2: String): boolean
+}
+
+class WeblogPermission <<Security>> {
+    + {static} ADMIN: String = "admin"
+    + {static} POST: String = "post"
+    + {static} EDIT_DRAFT: String = "edit_draft"
+    + {static} ALL_ACTIONS: List<String>
+    --
+    + WeblogPermission(w: Weblog, u: User, actions: List<String>)
+    + getWeblog(): Weblog
+    + getUser(): User
+    + implies(perm: Permission): boolean
+}
+
+' SERVICE / MANAGER INTERFACES
+
+interface UserManager <<interface>> {
+    --
+    + addUser(newUser: User): void
+    + saveUser(user: User): void
+    + removeUser(user: User): void
+    + getUser(id: String): User
+    + getUserCount(): long
+    + getUserByUserName(userName: String): User
+    + getUserByActivationCode(code: String): User
+    + getUserByOpenIdUrl(url: String): User
+    + getUsersStartingWith(start: String, ...): List<User>
+    + getUserNameLetterMap(): Map<String,Long>
+    + checkPermission(p: RollerPermission, u: User): boolean
+    + grantWeblogPermission(w: Weblog, u: User, actions: List<String>): void
+    + grantWeblogPermissionPending(w: Weblog, u: User, actions: List<String>): void
+    + getWeblogPermission(w: Weblog, u: User): WeblogPermission
+    + grantRole(role: String, u: User): void
+    + getRoles(u: User): List<String>
+}
+
+' IMPLEMENTATIONS
+
+class JPAUserManagerImpl <<Service Impl>> {
+    - strategy: JPAPersistenceStrategy
+    - userNameToIdMap: Map<String, String>
+    --
+    + JPAUserManagerImpl(strat: JPAPersistenceStrategy)
+    + saveUser(user: User): void
+    + removeUser(user: User): void
+    + addUser(newUser: User): void
+    + getUser(id: String): User
+    + getUserByUserName(userName: String): User
+    + checkPermission(perm: RollerPermission, user: User): boolean
+    + grantRole(roleName: String, user: User): void
+    + revokeRole(roleName: String, user: User): void
+}
+
+class RollerUserDetailsService <<SpringSecurity>> {
+    --
+    + loadUserByUsername(userName: String): UserDetails
+    - getAuthorities(userData: User, umgr: UserManager): List<SimpleGrantedAuthority>
+}
+
+class CustomUserRegistry <<SecurityUtil>> {
+    + {static} getUserDetailsFromAuthentication(req: HttpServletRequest): User
+    - {static} getRequestAttribute(req: HttpServletRequest, name: String): String
+    - {static} getLdapAttribute(attrs: Attributes, name: String): String
+}
+
+' UI / API LAYER
+
+class UIAction <<Controller>> {
+    - authenticatedUser: User
+    - actionWeblog: Weblog
+    - weblog: String
+    --
+    + isUserRequired(): boolean
+    + isUserIsAdmin(): boolean
+    + getAuthenticatedUser(): User
+    + getActionWeblog(): Weblog
+    + addError(key: String): void
+}
+
+class Register <<Controller>> {
+    - bean: ProfileBean
+    - activationCode: String
+    - authMethod: AuthMethod
+    --
+    + execute(): String
+    + save(): String
+    + activate(): String
+    + myValidate(): void
+    - checkUsername(): void
+    - checkOpenID(): void
+    - sendActivationMailIfNeeded(ud: User, enable: boolean): void
+    - retryActivationCode(mgr: UserManager, code: String): String
+}
+
+class Login <<Controller>> {
+    - error: String
+    - authMethod: AuthMethod
+    --
+    + execute(): String
+    + getError(): String
+    + setError(error: String): void
+}
+
+class Profile <<Controller>> {
+    - bean: ProfileBean
+    - authMethod: AuthMethod
+    --
+    + execute(): String
+    + save(): String
+    + myValidate(): void
+}
+
+' RELATIONSHIPS
+
+ObjectPermission --|> RollerPermission : Inheritance >
+GlobalPermission --|> RollerPermission : Inheritance >
+WeblogPermission --|> ObjectPermission : Inheritance >
+
+JPAUserManagerImpl ..|> UserManager : Realization >
+
+Register --|> UIAction : Inheritance >
+Login --|> UIAction : Inheritance >
+Profile --|> UIAction : Inheritance >
+
+User "1" ..> "0..*" UserRole : Association \n(Decoupled via UserManager\nUser does not own list)
+WeblogPermission "0..*" --> "1" User : Association \n(Permission scoped to User\nPermissions define User Access)
+GlobalPermission "0..*" --> "1" User : Association \n(Permission scoped to User)
+
+UserManager ..> User : Dependency \n(Manages Lifecycle CRUD)
+UserManager ..> WeblogPermission : Dependency \n(Manages Creation/Granting)
+
+JPAUserManagerImpl --> User : Dependency \n(Persists/Retrieves)
+JPAUserManagerImpl --> UserRole : Dependency \n(Persists/Retrieves)
+JPAUserManagerImpl --> WeblogPermission : Dependency \n(Persists/Retrieves)
+JPAUserManagerImpl ..> GlobalPermission : Dependency \n(Instantiates for checkPermission)
+
+RollerUserDetailsService ..> UserManager : Dependency \n(Delegates Data Lookup\nAdapter Pattern)
+RollerUserDetailsService ..> User : Dependency \n(Converts to UserDetails)
+
+Register ..> UserManager : Dependency \n(Uses for CRUD/Validation)
+Register ..> User : Dependency \n(Creates new Instance)
+Register ..> CustomUserRegistry : Dependency \n(Extracts SSO Data)
+
+Login ..> UIAction : Inheritance \n(Uses shared session logic)
+
+Profile ..> UserManager : Dependency \n(Saves updates)
+Profile ..> User : Dependency \n(Modifies existing user)
+Profile ..> UIAction : Inheritance \n(Uses Base Logic)
+
+UIAction ..> UserManager : Dependency \n(Uses for Permission Check)
+UIAction ..> GlobalPermission : Dependency \n(Instantiates for isAdmin check)
+CustomUserRegistry ..> User : Dependency \n(Creates transient User POJO)
+
+@enduml

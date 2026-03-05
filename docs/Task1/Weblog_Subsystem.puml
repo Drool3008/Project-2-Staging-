@@ -1,0 +1,208 @@
+@startuml weblog_content_subsystem
+
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 50
+skinparam classBackgroundColor White
+skinparam classBorderColor Black
+
+title Weblog and Content Subsystem
+footer Apache Roller - Weblog Subsystem Analysis
+
+' NESTED ENUMS
+
+enum "WeblogEntry.PubStatus" as PubStatus {
+    DRAFT
+    PUBLISHED
+    PENDING
+    SCHEDULED
+}
+
+enum "WeblogEntryComment.ApprovalStatus" as ApprovalStatus {
+    APPROVED
+    DISAPPROVED
+    SPAM
+    PENDING
+}
+
+' CORE DOMAIN MODELS
+
+class Weblog <<Domain>> {
+    - id: String
+    - handle: String
+    - name: String
+    - locale: String
+    - timeZone: String
+    - enableBloggerApi: Boolean
+    - editorTheme: String
+    - allowComments: Boolean
+    - active: Boolean
+    - visible: Boolean
+    - lastModified: Date
+    --
+    + hasUserPermissions(user: User, actions: List<String>): boolean
+    + getRecentWeblogEntries(cat: String, len: int): List<WeblogEntry>
+    + getRecentComments(len: int): List<WeblogEntryComment>
+    + getPopularTags(days: int, len: int): List<TagStat>
+    + getTheme(): WeblogTheme
+    + getLocaleInstance(): Locale
+}
+
+class WeblogEntry <<Domain>> {
+    - id: String
+    - anchor: String
+    - title: String
+    - text: String
+    - summary: String
+    - status: PubStatus
+    - pubTime: Timestamp
+    - allowComments: Boolean
+    - commentDays: Integer
+    - rightToLeft: Boolean
+    - pinnedToMain: Boolean
+    --
+    + addTag(name: String): void
+    + getCommentsStillAllowed(): boolean
+    + getPermalink(): String
+    + getComments(ignoreSpam: boolean, approved: boolean): List<WeblogEntryComment>
+}
+
+class WeblogEntryComment <<Domain>> {
+    - id: String
+    - name: String
+    - email: String
+    - url: String
+    - remoteHost: String
+    - content: String
+    - postTime: Timestamp
+    - status: ApprovalStatus
+    - referrer: String
+    - userAgent: String
+    --
+    + getSpam(): Boolean
+    + getApproved(): Boolean
+    + getPending(): Boolean
+}
+
+class WeblogCategory <<Domain>> {
+    - id: String
+    - name: String
+    - description: String
+    - path: String
+    --
+    + getWeblog(): Weblog
+}
+
+class WeblogEntryTag <<Domain>> {
+    - id: String
+    - name: String
+    - time: Timestamp
+    --
+    + getWeblogEntry(): WeblogEntry
+}
+
+' SERVICE / MANAGER INTERFACES
+
+interface WeblogManager <<interface>> {
+    --
+    + addWeblog(w: Weblog): void
+    + saveWeblog(w: Weblog): void
+    + removeWeblog(w: Weblog): void
+    + getWeblog(id: String): Weblog
+    + getWeblogByHandle(handle: String, enabled: Boolean): Weblog
+    + getWeblogs(enabled: Boolean, startDate: Date, endDate: Date, offset: int, len: int): List<Weblog>
+    + getUserWeblogs(u: User, enabled: boolean): List<Weblog>
+    + getWeblogHandleLetterMap(): Map<String,Long>
+    + saveTemplate(t: WeblogTemplate): void
+    + getTemplateByAction(w: Weblog, a: ComponentType): WeblogTemplate
+}
+
+interface WeblogEntryManager <<interface>> {
+    --
+    + saveWeblogEntry(e: WeblogEntry): void
+    + removeWeblogEntry(e: WeblogEntry): void
+    + getWeblogEntryByAnchor(w: Weblog, a: String): WeblogEntry
+    + getWeblogEntries(c: WeblogEntrySearchCriteria): List<WeblogEntry>
+    + getWeblogEntryObjectMap(c: WeblogEntrySearchCriteria): Map<Date,List<WeblogEntry>>
+    + saveComment(c: WeblogEntryComment): void
+    + getComments(c: CommentSearchCriteria): List<WeblogEntryComment>
+    + saveWeblogCategory(c: WeblogCategory): void
+    + getTagComboExists(tags: List<String>, w: Weblog): boolean
+    + getPopularTags(w: Weblog, startDate: Date, offset: int, len: int): List<TagStat>
+    + getHitCountByWeblog(w: Weblog): WeblogHitCount
+}
+
+' IMPLEMENTATIONS
+
+class WebloggerFactory <<Factory>> {
+    --
+    + {static} getWeblogger(): Weblogger
+}
+
+' UI / API LAYER
+
+class PageServlet <<Controller>> {
+    - weblogPageCache: WeblogPageCache
+    - siteWideCache: SiteWideCache
+    - processReferrers: boolean
+    - excludeOwnerPages: boolean
+    --
+    + doGet(req: HttpServletRequest, res: HttpServletResponse): void
+    - processReferrer(req: HttpServletRequest): boolean
+    - processHit(weblog: Weblog): void
+}
+
+class WeblogRequest <<Util>> {
+    - weblogHandle: String
+    - locale: String
+    - pathInfo: String
+    - weblog: Weblog
+    --
+    + WeblogRequest(req: HttpServletRequest)
+    + getWeblog(): Weblog
+    + getLocaleInstance(): Locale
+    # isLocale(s: String): boolean
+}
+
+class WeblogPageRequest <<Util>> {
+    - context: String
+    - weblogAnchor: String
+    - weblogPageName: String
+    - weblogCategoryName: String
+    - weblogDate: String
+    - tags: List<String>
+    - weblogEntry: WeblogEntry
+    - weblogPage: ThemeTemplate
+    - weblogCategory: WeblogCategory
+    --
+    + WeblogPageRequest(req: HttpServletRequest)
+    + getWeblogEntry(): WeblogEntry
+    + getWeblogPage(): ThemeTemplate
+    + getWeblogCategory(): WeblogCategory
+}
+
+' RELATIONSHIPS
+
+Weblog "1" *-- "0..*" WeblogEntry : Composition >
+Weblog "1" o-- "0..*" WeblogCategory : Aggregation >
+Weblog "1" o-- "0..*" WeblogEntryTag : Aggregation >
+WeblogEntry "1" *-- "0..*" WeblogEntryComment : Composition >
+WeblogEntry "0..*" --> "1" WeblogCategory : Association >
+WeblogEntry "1" o-- "0..*" WeblogEntryTag : Aggregation >
+
+WeblogEntry -- PubStatus : Uses >
+WeblogEntryComment -- ApprovalStatus : Uses >
+
+Weblog ..> WeblogManager : Dependency \n(via Factory for lookups)
+Weblog ..> WeblogEntryManager : Dependency \n(via Factory for content)
+WeblogEntry ..> WeblogEntryManager : Dependency \n(via Factory for tags/comments)
+
+WeblogPageRequest --|> WeblogRequest : Inheritance >
+PageServlet ..> WeblogPageRequest : Instantiates \n(Request Parsing)
+PageServlet --> WeblogEntryManager : Dependency \n(Tag Validation)
+
+WeblogPageRequest ..> Weblog : Association \n(Lazily Loads)
+WeblogPageRequest ..> WeblogEntry : Association \n(Lazily Loads via Manager)
+WeblogPageRequest ..> WeblogCategory : Association \n(Lazily Loads via Manager)
+
+@enduml

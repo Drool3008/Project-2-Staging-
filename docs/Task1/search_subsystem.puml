@@ -1,0 +1,271 @@
+@startuml roller_search_indexing_architecture
+skinparam linetype ortho
+skinparam nodesep 65
+skinparam ranksep 55
+skinparam classBackgroundColor White
+skinparam classBorderColor Black
+
+title Apache Roller – Search & Indexing Architecture
+footer Task 1 – Design Recovery (Search Subsystem)
+
+' ==================================================
+' CORE DOMAIN OBJECTS (Referenced, not owned)
+' ==================================================
+class WeblogEntry <<Entity>> {
+    - id : String
+    - title : String
+    - text : String
+    - pubTime : Timestamp
+}
+
+class Weblog <<Entity>> {
+    - id : String
+    - handle : String
+    - name : String
+}
+
+' ==================================================
+' INDEX FIELD DEFINITIONS
+' ==================================================
+class LuceneFieldKeys <<Constants>> {
+    + {static} ID : String
+    + {static} HANDLE : String
+    + {static} USER : String
+    + {static} TITLE : String
+    + {static} BODY : String
+    + {static} CATEGORY : String
+    + {static} PUBLISHED : String
+    + {static} UPDATED : String
+    + {static} LOCALE : String
+    + {static} COMMENT_TEXT : String
+}
+
+' ==================================================
+' SEARCH SERVICE CONTRACT
+' ==================================================
+interface IndexManager <<interface>> {
+
+    == Lifecycle ==
+    + initialize() : void
+    + shutdown() : void
+    + release() : void
+    + isInconsistentAtStartup() : boolean
+
+    == Index Maintenance ==
+    + addEntryIndexOperation(entry : WeblogEntry) : void
+    + addEntryReIndexOperation(entry : WeblogEntry) : void
+    + removeEntryIndexOperation(entry : WeblogEntry) : void
+    + rebuildWeblogIndex(site : Weblog) : void
+    + rebuildWeblogIndex() : void
+    + removeWeblogIndex(site : Weblog) : void
+
+    == Query ==
+    + search(term : String,
+             weblogHandle : String,
+             category : String,
+             locale : String,
+             page : int,
+             count : int,
+             strategy : URLStrategy) : SearchResultList
+}
+
+note right of IndexManager
+Public façade used by UI and
+business layers.
+
+Search API exposes primitives,
+not command objects.
+end note
+
+' ==================================================
+' CONCURRENCY & COMMAND ABSTRACTIONS
+' ==================================================
+interface Runnable <<Java>> {
+    + run() : void
+}
+
+abstract class IndexCommand <<Command>> {
+    # indexManager : LuceneIndexManager
+    --
+    + run() : void
+    + {abstract} execute() : void
+}
+
+note left of IndexCommand
+Command objects are queued
+and executed asynchronously
+by the indexing service.
+end note
+
+abstract class WriteIndexCommand {
+    --
+    + run() : void
+}
+
+note right of WriteIndexCommand
+Template Method:
+1. Acquire write lock
+2. execute()
+3. Release lock
+end note
+
+abstract class ReadIndexCommand {
+    --
+    + run() : void
+}
+
+note left of ReadIndexCommand
+Read-only commands acquire
+shared read lock before execution.
+end note
+
+' ==================================================
+' CONCRETE INDEX OPERATIONS
+' ==================================================
+class AddEntryIndex {
+    - entry : WeblogEntry
+    --
+    + execute() : void
+}
+
+class RemoveEntryIndex {
+    - entry : WeblogEntry
+    --
+    + execute() : void
+}
+
+class ReindexEntry {
+    - entry : WeblogEntry
+    --
+    + execute() : void
+}
+
+class RebuildSiteIndex {
+    - weblog : Weblog
+    --
+    + execute() : void
+}
+
+class RemoveSiteIndex {
+    - weblog : Weblog
+    --
+    + execute() : void
+}
+
+class SearchIndex {
+    - term : String
+    - weblogHandle : String
+    - category : String
+    - locale : String
+    - hits : TopFieldDocs
+    --
+    + execute() : void
+    + getHitCount() : int
+    + getHits() : TopFieldDocs
+}
+
+note right of SearchIndex
+SearchIndex does NOT return
+presentation objects.
+
+Lucene results are later
+translated by the manager.
+end note
+
+' ==================================================
+' SEARCH RESULT STRUCTURES
+' ==================================================
+class SearchResultList {
+    - results : List<WeblogEntryWrapper>
+    - categories : Set<String>
+    - offset : int
+    - limit : int
+}
+
+class WeblogEntryWrapper {
+    - entry : WeblogEntry
+    - strategy : URLStrategy
+}
+
+note left of WeblogEntryWrapper
+Wrapper Pattern:
+Separates domain entity
+from view-specific URL logic.
+end note
+
+interface URLStrategy <<interface>> {
+    + getWeblogEntryURL(weblog : Weblog, ...) : String
+}
+
+' ==================================================
+' LUCENE IMPLEMENTATION CORE
+' ==================================================
+class LuceneIndexManager <<Singleton>> {
+    - indexDirectory : String
+    - sharedReader : IndexReader
+    - searchEnabled : boolean
+    - inconsistentStartup : boolean
+    - lock : ReadWriteLock
+    --
+    + initialize() : void
+    + shutdown() : void
+    + search(...) : SearchResultList
+    - enqueue(cmd : IndexCommand) : void
+}
+
+note right of LuceneIndexManager
+Application-scoped service.
+
+Responsibilities:
+- Index lifecycle
+- Thread safety
+- Command scheduling
+- Lucene abstraction
+
+→ Low cohesion risk
+end note
+
+' ==================================================
+' UI ACCESS POINT
+' ==================================================
+class SearchServlet <<Servlet>> {
+    + doGet(req : HttpServletRequest,
+            res : HttpServletResponse) : void
+}
+
+' ==================================================
+' RELATIONSHIPS
+' ==================================================
+Runnable <|.. IndexCommand
+
+IndexManager <|.. LuceneIndexManager
+
+IndexCommand <|-- WriteIndexCommand
+IndexCommand <|-- ReadIndexCommand
+
+WriteIndexCommand <|-- AddEntryIndex
+WriteIndexCommand <|-- RemoveEntryIndex
+WriteIndexCommand <|-- ReindexEntry
+WriteIndexCommand <|-- RebuildSiteIndex
+WriteIndexCommand <|-- RemoveSiteIndex
+
+ReadIndexCommand <|-- SearchIndex
+
+LuceneIndexManager "1" *-- "0..*" IndexCommand : schedules
+IndexCommand --> LuceneIndexManager : executes on
+
+AddEntryIndex --> WeblogEntry : indexes
+RemoveEntryIndex --> WeblogEntry : deletes
+ReindexEntry --> WeblogEntry : rebuilds
+RebuildSiteIndex --> Weblog : scans
+RemoveSiteIndex --> Weblog : clears
+
+LuceneIndexManager ..> LuceneFieldKeys : uses
+LuceneIndexManager ..> SearchResultList : builds
+
+SearchResultList "1" o-- "*" WeblogEntryWrapper
+WeblogEntryWrapper --> WeblogEntry : wraps
+
+SearchServlet ..> IndexManager : invokes
+
+@enduml

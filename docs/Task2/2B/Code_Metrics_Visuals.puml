@@ -1,0 +1,139 @@
+@startuml code_metrics_visuals
+
+skinparam componentStyle uml2
+skinparam componentBackgroundColor<<Outlier>> #FFDDDD
+skinparam componentBackgroundColor<<Baseline>> #DDFFDD
+skinparam componentBorderColor Black
+skinparam linetype ortho
+skinparam defaultFontName Arial
+
+title Task 2B: Visualizing CK Metric Violations (Outliers vs Baseline)
+
+package "Metric 1: Weighted Methods per Class (WMC / Complexity)" {
+    component "PageServlet" as WMC_Bad <<Outlier>>
+    component "WeblogCategory" as WMC_Good <<Baseline>>
+    
+    note bottom of WMC_Bad
+        **Score: 83**
+        (Baseline Median: ~25)
+        
+        **Interpretation:**
+        Untestable God Class.
+        Requires 83+ Unit Tests.
+    end note
+
+    note bottom of WMC_Good
+        **Score: ~20**
+        
+        **Interpretation:**
+        Healthy Domain Object.
+        Easy to verify.
+    end note
+    
+    WMC_Bad -[hidden]- WMC_Good
+}
+
+package "Metric 2: Coupling Between Objects (CBO)" {
+    component "LuceneIndexManager" as CBO_Bad <<Outlier>>
+    component "WeblogEntryComment" as CBO_Good <<Baseline>>
+    
+    note bottom of CBO_Bad
+        **Score: 40**
+        (Baseline Median: ~8)
+        
+        **Interpretation:**
+        **Hub Dependency**.
+        Ripples changes from 40 sources.
+    end note
+    
+    note bottom of CBO_Good
+        **Score: 4**
+        
+        **Interpretation:**
+        **Modular**.
+        Low blast radius on change.
+    end note
+    
+    CBO_Bad -[hidden]- CBO_Good
+}
+
+package "Metric 3: Response For a Class (RFC / Interaction)" {
+    component "PageServlet" as RFC_Bad <<Outlier>>
+    component "User" as RFC_Good <<Baseline>>
+    
+    note bottom of RFC_Bad
+        **Score: > 100**
+        (Baseline Median: ~30)
+        
+        **Interpretation:**
+        **Cognitive Overload**.
+        Developer must track 100+
+        dispatched methods to understand flow.
+    end note
+    
+    note bottom of RFC_Good
+        **Score: 32**
+        
+        **Interpretation:**
+        Self-Contained.
+        Predictable behavior.
+    end note
+}
+
+package "Metric 4: Lack of Cohesion (LCOM)" {
+    component "PageServlet" as LCOM_Bad <<Outlier>>
+    component "User" as LCOM_Good <<Baseline>>
+    
+    note bottom of LCOM_Bad
+        **Score: High (0.8)**
+        
+        **Interpretation:**
+        **Schizoid Class**.
+        Methods operate on disjoint
+        sets of fields (Routing vs Rendering).
+    end note
+    
+    note bottom of LCOM_Good
+        **Score: 0 (Perfect)**
+        
+        **Interpretation:**
+        **Cohesive POJO**.
+        All methods use common state.
+    end note
+}
+
+package "Special Metric: NPath (Feature Envy Indicator)" {
+    component "MediaFileSearchBean" as NPath_Bad <<Outlier>>
+    component "Typical Bean" as NPath_Good <<Baseline>>
+    
+    note bottom of NPath_Bad
+        **Score: 912**
+        (Threshold: 200)
+        
+        **Interpretation:**
+        **Smart Data Class**.
+        DTO contains hidden service logic.
+    end note
+    
+    note bottom of NPath_Good
+        **Score: 1**
+        
+        **Interpretation:**
+        Pure Data Holder.
+    end note
+}
+
+package "Special Metric: NCSS (Procedural Indicator)" {
+    component "DatabaseInstaller" as LOC_Bad <<Outlier>>
+    
+    note bottom of LOC_Bad
+        **Method Length: 221 Lines**
+        (Threshold: 50)
+        
+        **Interpretation:**
+        **Transaction Script**.
+        Monolithic upgrade procedure.
+    end note
+}
+
+@enduml

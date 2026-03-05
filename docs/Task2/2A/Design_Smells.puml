@@ -1,0 +1,173 @@
+@startuml design_smells_evidence
+
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 60
+skinparam classBackgroundColor White
+skinparam classBorderColor Black
+skinparam packageStyle rectangle
+
+title Task 2A: Visual Evidence of Design Smells
+
+' --- Smell 1 ---
+package "Smell 1: The God Class (PageServlet)" {
+    class PageServlet <<God Class>> {
+        # themeManager : ThemeManager
+        --
+        + doGet() : void
+        + doPost() : void
+        + init() : void
+        + processReferrer() : boolean
+        --
+        (LOC: 850, WMC: 83)
+        Violates: SRP, High Cohesion
+    }
+
+    class ThemeManager
+    class MobileDeviceRepository
+    class CommentServlet
+    class WeblogRequest
+    class SiteWideCache
+
+    PageServlet --> ThemeManager : Direct Dependency
+    PageServlet --> MobileDeviceRepository : Device Logic
+    PageServlet --> CommentServlet : Delegation
+    PageServlet --> WeblogRequest : Parsing
+    PageServlet --> SiteWideCache : Caching
+
+    note right of PageServlet
+        **Central Switchboard**
+        Handles logic for:
+        1. Routing
+        2. Spam Check
+        3. Device Detection
+        4. Caching
+        5. Rendering
+    end note
+}
+
+' --- Smell 2 ---
+package "Smell 2: Promiscuous Package (Cyclic Dependency)" {
+    package "org.apache.roller.weblogger.pojos" {
+        class Weblog {
+             - entries : List<WeblogEntry>
+             + getEntryDisplayCount()
+        }
+        
+        class WeblogEntry {
+             - website : Weblog
+             + getWebsite() : Weblog
+        }
+    }
+
+    Weblog "1" *-- "0..*" WeblogEntry : Composition
+    WeblogEntry --> "1" Weblog : **Back-Reference**
+
+    note bottom of WeblogEntry
+        **Hard Cycle**
+        Child depends on Parent.
+        Cannot separate 'Blog' from 'Entry'.
+        Violates: ADP
+    end note
+}
+
+' --- Smell 3 ---
+package "Smell 3: Hub Dependency (LuceneIndexManager)" {
+    class LuceneIndexManager <<Hub>> {
+        + rebuildWeblogIndex(Weblog)
+        + addEntryIndexOperation(WeblogEntry)
+        + search(String, String)
+    }
+
+    class Weblog
+    class WeblogEntry
+    class WeblogCategory
+    class Comment
+
+    LuceneIndexManager --> Weblog : Hard-Coded
+    LuceneIndexManager --> WeblogEntry : Hard-Coded
+    LuceneIndexManager --> WeblogCategory : Hard-Coded
+    LuceneIndexManager --> Comment : Hard-Coded
+
+    note right of LuceneIndexManager
+        **Fan-Out: 40+**
+        Service knows every concrete
+        entity type.
+        Violates: OCP, DIP
+    end note
+}
+
+' --- Smell 4 ---
+package "Smell 4: Leaky Abstraction (Interface Pollution)" {
+    interface Manager <<Leaky>> {
+        + save() throw RollerException
+        + remove() throw RollerException
+    }
+
+    class WeblogManager
+    class UserManager
+    class RollerException
+
+    WeblogManager ..|> Manager
+    UserManager ..|> Manager
+    Manager ..> RollerException : <<Throws>>
+
+    note right of Manager
+        **Leaky Abstraction**
+        Forces all implementations to
+        expose DB-like failure modes
+        (RollerException) in the API signature.
+        Violates: ISP
+    end note
+}
+
+' --- Smell 5 ---
+package "Smell 5: Feature Envy (Smart Data Class)" {
+    class MediaFileSearchBean <<DTO>> {
+        - name : String
+        - size : long
+        --
+        + copyTo(MediaFileFilter) : void
+        + getSizeFilterTypeLabel() : String
+    }
+
+    class MediaFileFilter
+    class RollerConstants
+    class ResourceBundle
+
+    MediaFileSearchBean --> MediaFileFilter : **Constructs Logic**
+    MediaFileSearchBean --> RollerConstants : Accesses Unit Conversions
+    MediaFileSearchBean --> ResourceBundle : Fetches UI Strings
+
+    note bottom of MediaFileSearchBean
+        **NPath: 912**
+        Bean contains complex logic
+        to convert units and Enums.
+        Should be in a Service/Factory.
+    end note
+}
+
+' --- Smell 6 ---
+package "Smell 6: Procedural Block (Transaction Script)" {
+    class DatabaseInstaller <<Procedural>> {
+        + install()
+        + upgradeTo400()
+        + upgradeTo500()
+    }
+
+    class Connection
+    class PreparedStatement
+
+    DatabaseInstaller --> Connection : JDBC Coupling
+    DatabaseInstaller --> PreparedStatement : SQL Coupling
+
+    note right of DatabaseInstaller
+        **Monolithic Script**
+        Method `upgradeTo400` is 440 LOC
+        of sequential SQL execution.
+        No State, No Polymorphism.
+        Violates: OO Design
+    end note
+}
+
+@enduml

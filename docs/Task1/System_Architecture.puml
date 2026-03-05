@@ -1,0 +1,457 @@
+@startuml roller_overall_system_architecture
+
+skinparam linetype ortho
+skinparam nodesep 70
+skinparam ranksep 70
+skinparam classBackgroundColor White
+skinparam classBorderColor Black
+
+title Apache Roller – Integrated System Architecture
+footer Task 1 – Consolidated System View (Weblog, User, Search)
+
+' ==================================================
+' CORE SHARED DOMAIN ENTITIES
+' (central to all three subsystems)
+' ==================================================
+class User <<Domain>> {
+    - id: String
+    - userName: String
+    - emailAddress: String
+    - enabled: Boolean
+}
+
+class Weblog <<Domain>> {
+    - id: String
+    - handle: String
+    - name: String
+    - locale: String
+    - timeZone: String
+    - allowComments: Boolean
+    - active: Boolean
+}
+
+class WeblogEntry <<Domain>> {
+    - id: String
+    - title: String
+    - text: String
+    - pubTime: Timestamp
+}
+
+class WeblogEntryComment <<Domain>> {
+    - id: String
+    - content: String
+    - postTime: Timestamp
+}
+
+class WeblogCategory <<Domain>> {
+    - id: String
+    - name: String
+    - path: String
+}
+
+class WeblogEntryTag <<Domain>> {
+    - id: String
+    - name: String
+    - time: Timestamp
+}
+
+' Core relationships inside content domain
+Weblog "1" *-- "0..*" WeblogEntry
+Weblog "1" o-- "0..*" WeblogCategory
+Weblog "1" o-- "0..*" WeblogEntryTag
+WeblogEntry "1" *-- "0..*" WeblogEntryComment
+WeblogEntry "0..*" --> "1" WeblogCategory
+WeblogEntry "1" o-- "0..*" WeblogEntryTag
+
+
+' ==================================================
+' SUBSYSTEM 1: USER & ROLE MANAGEMENT
+' ==================================================
+package "User & Role Management Subsystem" as USER_SUB {
+
+    class UserRole <<Domain>> {
+        - id: String
+        - userName: String
+        - role: String
+    }
+
+    class RollerPermission <<Security>> {
+        + implies(p: Permission): boolean
+    }
+
+    class ObjectPermission <<Security>> {
+        - objectId: String
+        - objectType: String
+        - userName: String
+        - pending: boolean
+    }
+
+    class GlobalPermission <<Security>> {
+        + {static} ADMIN: String
+        + {static} WEBLOG: String
+        + {static} LOGIN: String
+        + implies(perm: Permission): boolean
+    }
+
+    class WeblogPermission <<Security>> {
+        + {static} ADMIN: String
+        + {static} POST: String
+        + {static} EDIT_DRAFT: String
+        + getWeblog(): Weblog
+        + getUser(): User
+        + implies(perm: Permission): boolean
+    }
+
+    interface UserManager <<interface>> {
+        + addUser(newUser: User): void
+        + saveUser(user: User): void
+        + removeUser(user: User): void
+        + getUser(id: String): User
+        + getUserByUserName(userName: String): User
+        + checkPermission(p: RollerPermission, u: User): boolean
+        + grantWeblogPermission(w: Weblog, u: User, actions: List<String>): void
+        + getWeblogPermission(w: Weblog, u: User): WeblogPermission
+        + grantRole(role: String, u: User): void
+        + getRoles(u: User): List<String>
+    }
+
+    class JPAUserManagerImpl <<Service Impl>> {
+        - strategy: JPAPersistenceStrategy
+        - userNameToIdMap: Map<String, String>
+        + saveUser(user: User): void
+        + getUserByUserName(userName: String): User
+        + checkPermission(perm: RollerPermission, user: User): boolean
+    }
+
+    class RollerUserDetailsService <<SpringSecurity>> {
+        + loadUserByUsername(userName: String): UserDetails
+    }
+
+    class CustomUserRegistry <<SecurityUtil>> {
+        + {static} getUserDetailsFromAuthentication(req: HttpServletRequest): User
+    }
+
+    class UIAction <<Controller>> {
+        - authenticatedUser: User
+        - actionWeblog: Weblog
+        + isUserRequired(): boolean
+        + isUserIsAdmin(): boolean
+        + getAuthenticatedUser(): User
+        + getActionWeblog(): Weblog
+    }
+
+    class Register <<Controller>> {
+        + execute(): String
+        + save(): String
+        + activate(): String
+    }
+
+    class Login <<Controller>> {
+        + execute(): String
+    }
+
+    class Profile <<Controller>> {
+        + execute(): String
+        + save(): String
+    }
+
+    ' Inheritance inside user subsystem
+    ObjectPermission --|> RollerPermission
+    GlobalPermission --|> RollerPermission
+    WeblogPermission --|> ObjectPermission
+
+    JPAUserManagerImpl ..|> UserManager
+
+    Register --|> UIAction
+    Login --|> UIAction
+    Profile --|> UIAction
+
+    ' Associations
+    User "1" ..> "0..*" UserRole
+    WeblogPermission "0..*" --> "1" User
+    GlobalPermission "0..*" --> "1" User
+
+    UserManager ..> User
+    UserManager ..> WeblogPermission
+
+    JPAUserManagerImpl --> User
+    JPAUserManagerImpl --> UserRole
+    JPAUserManagerImpl --> WeblogPermission
+    JPAUserManagerImpl ..> GlobalPermission
+
+    RollerUserDetailsService ..> UserManager
+    RollerUserDetailsService ..> User
+
+    Register ..> UserManager
+    Register ..> User
+    Register ..> CustomUserRegistry
+
+    Profile ..> UserManager
+    Profile ..> User
+
+    UIAction ..> UserManager
+    UIAction ..> GlobalPermission
+    CustomUserRegistry ..> User
+}
+
+
+' ==================================================
+' SUBSYSTEM 2: WEBLOG & CONTENT
+' ==================================================
+package "Weblog & Content Subsystem" as CONTENT_SUB {
+
+    interface WeblogManager <<interface>> {
+        + addWeblog(w: Weblog): void
+        + saveWeblog(w: Weblog): void
+        + getWeblogByHandle(handle: String, enabled: Boolean): Weblog
+        + getUserWeblogs(u: User, enabled: boolean): List<Weblog>
+    }
+
+    interface WeblogEntryManager <<interface>> {
+        + saveWeblogEntry(e: WeblogEntry): void
+        + removeWeblogEntry(e: WeblogEntry): void
+        + getWeblogEntryByAnchor(w: Weblog, a: String): WeblogEntry
+        + saveComment(c: WeblogEntryComment): void
+        + getComments(...): List<WeblogEntryComment>
+        + getPopularTags(w: Weblog, ...): List<TagStat>
+    }
+
+    class WebloggerFactory <<Factory>> {
+        + {static} getWeblogger(): Weblogger
+    }
+
+    class PageServlet <<Controller>> {
+        - weblogPageCache: WeblogPageCache
+        - siteWideCache: SiteWideCache
+        - processReferrers: boolean
+        - excludeOwnerPages: boolean
+        + doGet(req: HttpServletRequest, res: HttpServletResponse): void
+        - processReferrer(req: HttpServletRequest): boolean
+        - processHit(weblog: Weblog): void
+    }
+
+    class WeblogRequest <<Util>> {
+        - weblogHandle: String
+        - locale: String
+        - pathInfo: String
+        - weblog: Weblog
+        + WeblogRequest(req: HttpServletRequest)
+        + getWeblog(): Weblog
+        + getLocaleInstance(): Locale
+    }
+
+    class WeblogPageRequest <<Util>> {
+        - context: String
+        - weblogAnchor: String
+        - weblogPageName: String
+        - weblogCategoryName: String
+        - weblogDate: String
+        - tags: List<String>
+        - weblogEntry: WeblogEntry
+        - weblogPage: ThemeTemplate
+        - weblogCategory: WeblogCategory
+        + WeblogPageRequest(req: HttpServletRequest)
+        + getWeblogEntry(): WeblogEntry
+        + getWeblogPage(): ThemeTemplate
+        + getWeblogCategory(): WeblogCategory
+    }
+
+    ' Intra-content relationships
+    Weblog ..> WeblogManager
+    Weblog ..> WeblogEntryManager
+    WeblogEntry ..> WeblogEntryManager
+
+    WeblogPageRequest --|> WeblogRequest
+    PageServlet ..> WeblogPageRequest
+    PageServlet --> WeblogEntryManager
+
+    WeblogPageRequest ..> Weblog
+    WeblogPageRequest ..> WeblogEntry
+    WeblogPageRequest ..> WeblogCategory
+}
+
+
+' ==================================================
+' SUBSYSTEM 3: SEARCH & INDEXING
+' ==================================================
+package "Search & Indexing Subsystem" as SEARCH_SUB {
+
+    class LuceneFieldKeys <<Constants>> {
+        + {static} ID : String
+        + {static} HANDLE : String
+        + {static} TITLE : String
+        + {static} BODY : String
+        + {static} CATEGORY : String
+        + {static} PUBLISHED : String
+        + {static} UPDATED : String
+        + {static} LOCALE : String
+    }
+
+    interface URLStrategy <<interface>> {
+        + getWeblogEntryURL(weblog : Weblog, ...) : String
+    }
+
+    class WeblogEntryWrapper {
+        - entry : WeblogEntry
+        - strategy : URLStrategy
+    }
+
+    class SearchResultList {
+        - results : List<WeblogEntryWrapper>
+        - categories : Set<String>
+        - offset : int
+        - limit : int
+    }
+
+    interface IndexManager <<interface>> {
+        + initialize() : void
+        + shutdown() : void
+        + addEntryIndexOperation(entry : WeblogEntry) : void
+        + addEntryReIndexOperation(entry : WeblogEntry) : void
+        + removeEntryIndexOperation(entry : WeblogEntry) : void
+        + rebuildWeblogIndex(site : Weblog) : void
+        + search(term : String,
+                 weblogHandle : String,
+                 category : String,
+                 locale : String,
+                 page : int,
+                 count : int,
+                 strategy : URLStrategy) : SearchResultList
+    }
+
+    interface Runnable <<Java>> {
+        + run() : void
+    }
+
+    abstract class IndexCommand <<Command>> {
+        # indexManager : LuceneIndexManager
+        + run() : void
+        + {abstract} execute() : void
+    }
+
+    abstract class WriteIndexCommand {
+        + run() : void
+    }
+
+    abstract class ReadIndexCommand {
+        + run() : void
+    }
+
+    class AddEntryIndex {
+        - entry : WeblogEntry
+        + execute() : void
+    }
+
+    class RemoveEntryIndex {
+        - entry : WeblogEntry
+        + execute() : void
+    }
+
+    class ReindexEntry {
+        - entry : WeblogEntry
+        + execute() : void
+    }
+
+    class RebuildSiteIndex {
+        - weblog : Weblog
+        + execute() : void
+    }
+
+    class RemoveSiteIndex {
+        - weblog : Weblog
+        + execute() : void
+    }
+
+    class SearchIndex {
+        - term : String
+        - weblogHandle : String
+        - category : String
+        - locale : String
+        - hits : TopFieldDocs
+        + execute() : void
+        + getHitCount() : int
+        + getHits() : TopFieldDocs
+    }
+
+    class LuceneIndexManager <<Singleton>> {
+        - indexDirectory : String
+        - sharedReader : IndexReader
+        - searchEnabled : boolean
+        - inconsistentStartup : boolean
+        - lock : ReadWriteLock
+        + initialize() : void
+        + shutdown() : void
+        + search(...) : SearchResultList
+        - enqueue(cmd : IndexCommand) : void
+    }
+
+    class SearchServlet <<Servlet>> {
+        + doGet(req : HttpServletRequest,
+                res : HttpServletResponse) : void
+    }
+
+    ' Inheritance and composition inside search subsystem
+    Runnable <|.. IndexCommand
+    IndexManager <|.. LuceneIndexManager
+
+    IndexCommand <|-- WriteIndexCommand
+    IndexCommand <|-- ReadIndexCommand
+
+    WriteIndexCommand <|-- AddEntryIndex
+    WriteIndexCommand <|-- RemoveEntryIndex
+    WriteIndexCommand <|-- ReindexEntry
+    WriteIndexCommand <|-- RebuildSiteIndex
+    WriteIndexCommand <|-- RemoveSiteIndex
+
+    ReadIndexCommand <|-- SearchIndex
+
+    LuceneIndexManager "1" *-- "0..*" IndexCommand : schedules
+    IndexCommand --> LuceneIndexManager : executes on
+
+    AddEntryIndex --> WeblogEntry
+    RemoveEntryIndex --> WeblogEntry
+    ReindexEntry --> WeblogEntry
+    RebuildSiteIndex --> Weblog
+    RemoveSiteIndex --> Weblog
+
+    LuceneIndexManager ..> LuceneFieldKeys
+    LuceneIndexManager ..> SearchResultList
+
+    SearchResultList "1" o-- "*" WeblogEntryWrapper
+    WeblogEntryWrapper --> WeblogEntry
+
+    SearchServlet ..> IndexManager
+}
+
+
+' ==================================================
+' CROSS-SUBSYSTEM INTERACTIONS (KEY INTEGRATION POINTS)
+' ==================================================
+
+' 1) UI / Controllers using User & Weblog together
+PageServlet ..> UIAction : "shares auth/session model via base UIAction\n(consistent controller layer idiom)"
+PageServlet ..> UserManager : "resolve permissions before serving weblog content"
+
+' 2) Content controllers calling Search subsystem
+PageServlet ..> IndexManager : "trigger reindex on entry/webpage changes"
+WeblogEntryManager ..> IndexManager : "add/remove/reindex entries on save/remove"
+
+' 3) Search results flowing back into content UI
+SearchServlet ..> Weblog : "filter by weblog handle"
+SearchServlet ..> WeblogEntry : "display matched entries via SearchResultList"
+SearchServlet ..> UserManager : "optional permission checks per weblog/entry"
+
+' 4) Permissions guarding content & search access
+UserManager ..> Weblog : "permission checks for weblog operations"
+UserManager ..> WeblogEntry : "permission checks for entry operations"
+UserManager ..> SearchServlet : "indirectly via security filters/UserDetailsService"
+
+' 5) Shared domain types across subsystems
+USER_SUB::User  -- CONTENT_SUB::Weblog : "owners / authors"
+USER_SUB::User  ..> CONTENT_SUB::WeblogEntry : "author/creator (implicit in model)"
+USER_SUB::WeblogPermission --> CONTENT_SUB::Weblog : "weblog-scoped rights"
+SEARCH_SUB::IndexManager ..> CONTENT_SUB::WeblogEntry : "indexing content"
+SEARCH_SUB::IndexManager ..> CONTENT_SUB::Weblog : "weblog-scoped index ops"
+
+
+@enduml
