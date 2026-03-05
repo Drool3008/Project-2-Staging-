@@ -68,6 +68,8 @@ public class MainMenu extends UIAction {
                         .getStarredWeblogsSortedByRecency(getAuthenticatedUser());
             } catch (WebloggerException e) {
                 log.error("Error fetching starred weblogs", e);
+            } catch (Exception e) {
+                log.error("Unexpected error fetching starred weblogs", e);
             }
         }
         return SUCCESS;

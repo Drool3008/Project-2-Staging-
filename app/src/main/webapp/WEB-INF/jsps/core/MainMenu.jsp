@@ -182,7 +182,7 @@
       <li>
         <a href='<s:property value="#item.weblog.URL"/>'><s:property value="#item.weblog.name"/></a>
         <s:if test="#item.latestPostTime != null">
-          &mdash; Last post:
+          &mdash; Last updated:
           <s:date name="#item.latestPostTime" format="MMM dd, yyyy HH:mm"/>
         </s:if>
       </li>
