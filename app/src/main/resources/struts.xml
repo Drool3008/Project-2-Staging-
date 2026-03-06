@@ -173,6 +173,12 @@
             <allowed-methods>execute</allowed-methods>
         </action>
 
+        <action name="trendingBlogs"
+                class="org.apache.roller.weblogger.ui.struts2.core.TrendingBlogs">
+            <result type="tiles">.TrendingBlogs</result>
+            <allowed-methods>execute</allowed-methods>
+        </action>
+
     </package>
     
     

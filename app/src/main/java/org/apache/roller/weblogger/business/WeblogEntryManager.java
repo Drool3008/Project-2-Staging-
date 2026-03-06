@@ -431,5 +431,15 @@ public interface WeblogEntryManager {
      */
     boolean isEntryStarredByUser(User user, WeblogEntry entry) throws WebloggerException;
 
+    /**
+     * Returns the top {@code limit} published WeblogEntries ranked by the
+     * number of distinct users who have starred them.  Uses a single
+     * aggregate GROUP BY query — no per-entry iteration.
+     *
+     * @param limit max number of entries to return (e.g. 5)
+     * @return list of Object[]{WeblogEntry, Long starCount}, descending by starCount
+     */
+    List<Object[]> getTrendingEntries(int limit) throws WebloggerException;
+
 }
 

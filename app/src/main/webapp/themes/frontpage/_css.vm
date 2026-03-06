@@ -470,4 +470,28 @@ a.s3, a.s3:visited { font-size: 120%; color: #cb7e7c ! important; }
 a.s2, a.s2:visited { font-size: 115%; color: #deafad ! important; }
 a.s1, a.s1:visited { font-size: 110%; color: #f1dbdb ! important; }
 
+/* ------------------------------------------------------------ */
+/* FIX FOR LONG UNBREAKABLE TEXT OVERFLOW */
+/* ------------------------------------------------------------ */
+
+#main_content,
+.content,
+.entryBox,
+.entryContent,
+.entryTitle,
+.day,
+div.entries,
+div.entry,
+p,
+article {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    min-width: 0;
+}
+
+body {
+    overflow-x: hidden;
+}
+
 /* end css */

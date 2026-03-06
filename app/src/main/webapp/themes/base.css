@@ -345,3 +345,28 @@ div.bCalendarDayContentBig {
   padding: 3px 0px;
 }
 
+/* ============================================
+   Fix for long unbreakable text overflow
+   Prevents content from overflowing sidebar
+   ============================================ */
+.entryBox,
+.entryContent,
+.entryTitle,
+#main_content,
+.content,
+.content_wrapper,
+.day,
+article,
+main,
+p {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    min-width: 0;
+}
+
+/* Ensure container doesn't allow horizontal overflow */
+body {
+    overflow-x: hidden;
+}
+

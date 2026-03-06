@@ -255,14 +255,36 @@ div.dayTitle {
 .content_wrapper {
     width: 80%;
     float: left;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    min-width: 0;
+    overflow: hidden;
 }
 .content {
     padding: 0em 2em 2em 2em;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    min-width: 0;
 }
 .rightbar_wrapper { 
     width: 20%;
     float: right;
 }
+
+/* Fix for long unbreakable text overflow */
+.entryBox,
+.entryContent,
+.entryTitle,
+#main_content,
+p,
+div {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+}
+
 .mobile{
 	width:250px;
 	height: 51px;

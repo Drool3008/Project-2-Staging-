@@ -41,6 +41,9 @@
         <named-query name="WeblogEntry.countAllStarredByUser">
             <query>SELECT COUNT(e) FROM WeblogEntry e JOIN e.starredByUsers u WHERE u.id = ?1</query>
         </named-query>
+        <named-query name="WeblogEntry.getTopStarredEntries">
+            <query>SELECT e, COUNT(u) AS starCount FROM WeblogEntry e JOIN e.starredByUsers u WHERE e.status = 'PUBLISHED' GROUP BY e ORDER BY starCount DESC</query>
+        </named-query>
         <attributes>
             <id name="id">
                 <column name="id"/>
