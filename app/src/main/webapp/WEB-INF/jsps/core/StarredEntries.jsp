@@ -52,6 +52,27 @@
             </s:iterator>
         </tbody>
     </table>
+
+    <%-- Pagination --%>
+    <div class="pager" style="margin-top:10px;">
+        <s:if test="hasPrevPage">
+            <s:url action="starredEntries" var="prevUrl">
+                <s:param name="page" value="prevPage"/>
+            </s:url>
+            <a href="<s:property value='prevUrl'/>" class="btn btn-default btn-sm">&laquo; Previous</a>
+        </s:if>
+        <span style="margin:0 10px;">
+            Page <s:property value="page + 1" />
+            of <s:property value="totalPages" />
+            &nbsp;(<s:property value="totalWeblogs"/> starred blogs)
+        </span>
+        <s:if test="hasNextPage">
+            <s:url action="starredEntries" var="nextUrl">
+                <s:param name="page" value="nextPage"/>
+            </s:url>
+            <a href="<s:property value='nextUrl'/>" class="btn btn-default btn-sm">Next &raquo;</a>
+        </s:if>
+    </div>
 </s:else>
 
 <p style="margin-top:20px;">

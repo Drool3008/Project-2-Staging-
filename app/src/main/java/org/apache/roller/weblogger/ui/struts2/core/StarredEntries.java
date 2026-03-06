@@ -25,15 +25,27 @@ import org.apache.roller.weblogger.pojos.StarredWeblogEntry;
 import org.apache.roller.weblogger.ui.struts2.util.UIAction;
 
 /**
- * Displays the logged-in user's starred (favourited) weblogs.
+ * Displays the logged-in user's starred (favourited) weblogs with pagination.
  * This shows the same weblogs as in the main menu starred blogs section.
  */
 public class StarredEntries extends UIAction {
 
     private static final Log log = LogFactory.getLog(StarredEntries.class);
 
-    /** Starred weblogs for the user. */
+    /** Weblogs per page. */
+    private static final int PAGE_SIZE = 5;
+
+    /** Current page (0-based, passed as request param "page"). */
+    private int page = 0;
+
+    /** All starred weblogs for the user. */
+    private List<StarredWeblogEntry> allStarredWeblogs = new ArrayList<>();
+
+    /** Starred weblogs for the current page. */
     private List<StarredWeblogEntry> starredWeblogs = new ArrayList<>();
+
+    /** Total number of starred weblogs. */
+    private int totalWeblogs = 0;
 
     public StarredEntries() {
         this.pageTitle = "starredEntries.title";
@@ -51,12 +63,31 @@ public class StarredEntries extends UIAction {
             return LOGIN;
         }
         try {
-            // Get starred weblogs - same as MainMenu
-            starredWeblogs = WebloggerFactory.getWeblogger()
+            // Get all starred weblogs - same as MainMenu
+            allStarredWeblogs = WebloggerFactory.getWeblogger()
                     .getWeblogManager()
                     .getStarredWeblogsSortedByRecency(getAuthenticatedUser());
-            log.info("Loaded " + starredWeblogs.size() + " starred weblogs for user " 
-                    + getAuthenticatedUser().getUserName());
+            
+            totalWeblogs = allStarredWeblogs.size();
+            
+            if (totalWeblogs > 0) {
+                // Clamp page to valid range
+                int maxPage = Math.max(0, (totalWeblogs - 1) / PAGE_SIZE);
+                if (page > maxPage) {
+                    page = maxPage;
+                }
+                if (page < 0) {
+                    page = 0;
+                }
+                
+                // Get the subset for the current page
+                int startIndex = page * PAGE_SIZE;
+                int endIndex = Math.min(startIndex + PAGE_SIZE, totalWeblogs);
+                starredWeblogs = allStarredWeblogs.subList(startIndex, endIndex);
+            }
+            
+            log.info("Loaded " + starredWeblogs.size() + " starred weblogs (page " + page 
+                    + " of " + getTotalPages() + ") for user " + getAuthenticatedUser().getUserName());
         } catch (WebloggerException e) {
             log.error("Error loading starred weblogs for user "
                     + getAuthenticatedUser().getUserName(), e);
@@ -71,7 +102,22 @@ public class StarredEntries extends UIAction {
         return starredWeblogs; 
     }
 
+    public int getPage() { return page; }
+    public void setPage(int page) { this.page = Math.max(0, page); }
+
     public int getTotalWeblogs() { 
-        return starredWeblogs.size(); 
+        return totalWeblogs; 
     }
+
+    public int getPageSize() { return PAGE_SIZE; }
+
+    public int getTotalPages() { 
+        return totalWeblogs == 0 ? 1 : (totalWeblogs + PAGE_SIZE - 1) / PAGE_SIZE; 
+    }
+
+    public boolean isHasPrevPage() { return page > 0; }
+    public boolean isHasNextPage() { return (long)(page + 1) * PAGE_SIZE < totalWeblogs; }
+
+    public int getPrevPage() { return page - 1; }
+    public int getNextPage() { return page + 1; }
 }
