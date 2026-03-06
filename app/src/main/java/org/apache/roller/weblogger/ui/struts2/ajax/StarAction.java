@@ -24,12 +24,6 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.roller.weblogger.WebloggerException;
 import org.apache.roller.weblogger.business.StarFacade;
 import org.apache.roller.weblogger.business.WebloggerFactory;
-import org.apache.roller.weblogger.business.star.StarCommand;
-import org.apache.roller.weblogger.business.star.StarCommandExecutor;
-import org.apache.roller.weblogger.business.star.StarWeblogCommand;
-import org.apache.roller.weblogger.business.star.UnstarWeblogCommand;
-import org.apache.roller.weblogger.business.star.StarEntryCommand;
-import org.apache.roller.weblogger.business.star.UnstarEntryCommand;
 import org.apache.roller.weblogger.pojos.User;
 import org.apache.roller.weblogger.pojos.Weblog;
 import org.apache.roller.weblogger.pojos.WeblogEntry;
@@ -40,9 +34,8 @@ import org.apache.struts2.interceptor.ServletRequestAware;
  * Struts2 action that handles star / unstar requests for Weblogs and
  * WeblogEntries. Returns a JSON result (via struts2-json-plugin).
  *
- * Uses the Facade and Command design patterns:
+ * Uses the Facade design pattern:
  * - StarFacade: Unified interface to star operations
- * - StarCommand + StarCommandExecutor: Encapsulates star/unstar operations
  */
 public class StarAction extends ActionSupport implements ServletRequestAware {
 
@@ -57,8 +50,6 @@ public class StarAction extends ActionSupport implements ServletRequestAware {
 
     // Facade pattern: single point of access for star operations
     private final StarFacade starFacade = new StarFacade();
-    // Command pattern: executor for star commands
-    private final StarCommandExecutor commandExecutor = new StarCommandExecutor();
 
     // -------------------------------------------------- ServletRequestAware
 
@@ -91,9 +82,8 @@ public class StarAction extends ActionSupport implements ServletRequestAware {
                 result.put("error", "Weblog not found");
                 return SUCCESS;
             }
-            // Command pattern: create and execute star weblog command
-            StarCommand command = new StarWeblogCommand(user, weblog, starFacade);
-            commandExecutor.execute(command);
+            // Facade pattern: use StarFacade to star weblog
+            starFacade.starWeblog(user, weblog);
             result.put("success", true);
         } catch (WebloggerException e) {
             result.put("success", false);
@@ -117,9 +107,8 @@ public class StarAction extends ActionSupport implements ServletRequestAware {
                 result.put("error", "Weblog not found");
                 return SUCCESS;
             }
-            // Command pattern: create and execute unstar weblog command
-            StarCommand command = new UnstarWeblogCommand(user, weblog, starFacade);
-            commandExecutor.execute(command);
+            // Facade pattern: use StarFacade to unstar weblog
+            starFacade.unstarWeblog(user, weblog);
             result.put("success", true);
         } catch (WebloggerException e) {
             result.put("success", false);
@@ -148,9 +137,8 @@ public class StarAction extends ActionSupport implements ServletRequestAware {
                 return SUCCESS;
             }
             log.info("starEntry: starring entry '" + entry.getTitle() + "' for user " + user.getUserName());
-            // Command pattern: create and execute star entry command
-            StarCommand command = new StarEntryCommand(user, entry, starFacade);
-            commandExecutor.execute(command);
+            // Facade pattern: use StarFacade to star entry
+            starFacade.starEntry(user, entry);
             log.info("starEntry: SUCCESS");
             result.put("success", true);
         } catch (WebloggerException e) {
@@ -176,9 +164,8 @@ public class StarAction extends ActionSupport implements ServletRequestAware {
                 result.put("error", "Entry not found");
                 return SUCCESS;
             }
-            // Command pattern: create and execute unstar entry command
-            StarCommand command = new UnstarEntryCommand(user, entry, starFacade);
-            commandExecutor.execute(command);
+            // Facade pattern: use StarFacade to unstar entry
+            starFacade.unstarEntry(user, entry);
             result.put("success", true);
         } catch (WebloggerException e) {
             result.put("success", false);
