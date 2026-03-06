@@ -18,10 +18,12 @@
 
 package org.apache.roller.weblogger.business;
 
+import java.util.Date;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.roller.weblogger.TestUtils;
 import org.apache.roller.weblogger.business.runnable.ThreadManager;
+import org.apache.roller.weblogger.pojos.TaskLock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,27 @@ public class TaskLockTest  {
     public void setUp() throws Exception {
         // setup weblogger
         TestUtils.setupWeblogger();
+
+        // registerLease requires a pre-existing TaskLock row in the DB with an
+        // expired lease (the same bootstrap that ThreadManagerImpl.initialize()
+        // normally performs). We always reset the row so the lease is expired,
+        // even if a previous test left it in a locked state.
+        ThreadManager mgr = WebloggerFactory.getWeblogger().getThreadManager();
+        TestTask task = new TestTask();
+        task.init();
+        TaskLock taskLock = mgr.getTaskLockByName(task.getName());
+        if (taskLock == null) {
+            taskLock = new TaskLock();
+            taskLock.setName(task.getName());
+        }
+        // Reset to expired state: timeAcquired=epoch, timeLeased=0 -> lease expired
+        taskLock.setLastRun(new Date(0));
+        taskLock.setTimeAcquired(new Date(0));
+        taskLock.setTimeLeased(0);
+        taskLock.setClientId(null);
+        mgr.saveTaskLock(taskLock);
+        // flush=true so the INSERT/UPDATE is committed before the test runs
+        TestUtils.endSession(true);
     }
 
     @AfterEach
