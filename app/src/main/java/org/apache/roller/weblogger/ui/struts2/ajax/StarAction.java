@@ -19,6 +19,8 @@ import com.opensymphony.xwork2.ActionSupport;
 import java.util.HashMap;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.roller.weblogger.WebloggerException;
 import org.apache.roller.weblogger.business.WebloggerFactory;
 import org.apache.roller.weblogger.pojos.User;
@@ -33,6 +35,7 @@ import org.apache.struts2.interceptor.ServletRequestAware;
  */
 public class StarAction extends ActionSupport implements ServletRequestAware {
 
+    private static final Log log = LogFactory.getLog(StarAction.class);
     private static final long serialVersionUID = 1L;
 
     private HttpServletRequest servletRequest;
@@ -108,24 +111,31 @@ public class StarAction extends ActionSupport implements ServletRequestAware {
     }
 
     public String starEntry() {
+        log.info("starEntry called with entryId=" + entryId);
         try {
             User user = getAuthenticatedUser();
             if (user == null) {
+                log.warn("starEntry: user not authenticated");
                 result.put("success", false);
                 result.put("error", "Not authenticated");
                 return SUCCESS;
             }
+            log.info("starEntry: user=" + user.getUserName());
             WeblogEntry entry = WebloggerFactory.getWeblogger()
                     .getWeblogEntryManager().getWeblogEntry(entryId);
             if (entry == null) {
+                log.warn("starEntry: entry not found for id=" + entryId);
                 result.put("success", false);
                 result.put("error", "Entry not found");
                 return SUCCESS;
             }
+            log.info("starEntry: starring entry '" + entry.getTitle() + "' for user " + user.getUserName());
             WebloggerFactory.getWeblogger().getWeblogEntryManager()
                     .starEntry(user, entry);
+            log.info("starEntry: SUCCESS");
             result.put("success", true);
         } catch (WebloggerException e) {
+            log.error("starEntry FAILED: " + e.getMessage(), e);
             result.put("success", false);
             result.put("error", e.getMessage());
         }

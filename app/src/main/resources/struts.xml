@@ -166,6 +166,10 @@
         <action name="starredEntries"
                 class="org.apache.roller.weblogger.ui.struts2.core.StarredEntries">
             <result type="tiles">.StarredEntries</result>
+            <result name="login" type="redirectAction">
+                <param name="actionName">login</param>
+                <param name="namespace">/roller-ui</param>
+            </result>
             <allowed-methods>execute</allowed-methods>
         </action>
 

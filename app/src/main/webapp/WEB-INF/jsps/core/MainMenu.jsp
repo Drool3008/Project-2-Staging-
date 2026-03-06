@@ -192,5 +192,5 @@
 
 <%-- Link to starred entries page --%>
 <p style="margin-top:10px;">
-    <a href="<s:url action="starredEntries"/>">&#9733; View My Starred Blog Posts</a>
+    <a href="<s:url action="starredEntries"/>">&#9733; View My Starred Blogs</a>
 </p>
