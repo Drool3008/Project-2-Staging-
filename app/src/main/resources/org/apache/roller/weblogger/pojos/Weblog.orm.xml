@@ -25,6 +25,9 @@
 		<named-query name="Weblog.countStarredByUser">
 			<query>SELECT COUNT(w) FROM Weblog w JOIN w.starredByUsers u WHERE w.id = ?1 AND u.id = ?2</query>
 		</named-query>
+		<named-query name="Weblog.getTopStarredWeblogs">
+			<query>SELECT w, COUNT(u) AS starCount FROM Weblog w JOIN w.starredByUsers u GROUP BY w ORDER BY starCount DESC</query>
+		</named-query>
 		<attributes>
 			<id name="id">
 				<column name="id"/>
