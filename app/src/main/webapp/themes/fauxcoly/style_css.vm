@@ -263,3 +263,25 @@ ul.activities li {
     line-height: 0.6em;
     text-align: left;
 }
+
+/* ------------------------------------------------------------ */
+/* FIX FOR LONG UNBREAKABLE TEXT OVERFLOW */
+/* ------------------------------------------------------------ */
+
+#main_content,
+.yui3-u-2-3,
+.entryBox,
+.entryContent,
+.entryTitle,
+.day,
+p,
+article {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    min-width: 0;
+}
+
+body {
+    overflow-x: hidden;
+}

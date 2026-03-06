@@ -203,3 +203,26 @@ span.setup {
   text-decoration: none;
   background-color: #428bca;
 }
+
+/* ------------------------------------------------------------ */
+/* FIX FOR LONG UNBREAKABLE TEXT OVERFLOW */
+/* ------------------------------------------------------------ */
+
+#main_content,
+.col-lg-8,
+.col-md-8,
+.entryBox,
+.entryContent,
+.entryTitle,
+.day,
+p,
+article {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    min-width: 0;
+}
+
+body {
+    overflow-x: hidden;
+}
