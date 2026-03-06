@@ -24,6 +24,7 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.roller.weblogger.WebloggerException;
+import org.apache.roller.weblogger.business.StarFacade;
 import org.apache.roller.weblogger.business.WebloggerFactory;
 import org.apache.roller.weblogger.business.UserManager;
 import org.apache.roller.weblogger.business.WeblogManager;
@@ -36,6 +37,7 @@ import org.apache.struts2.convention.annotation.AllowedMethods;
 
 /**
  * Allows user to view and pick from list of his/her websites.
+ * Uses the Facade design pattern via StarFacade for star operations.
  */
 // TODO: make this work @AllowedMethods({"execute","accept","decline"})
 public class MainMenu extends UIAction {
@@ -45,6 +47,9 @@ public class MainMenu extends UIAction {
     private String websiteId = null;
     private String inviteId = null;
     private List<StarredWeblogEntry> starredWeblogs = new ArrayList<>();
+    
+    // Facade pattern: single point of access for star operations
+    private final StarFacade starFacade = new StarFacade();
     
     
     public MainMenu() {
@@ -63,9 +68,8 @@ public class MainMenu extends UIAction {
     public String execute() {
         if (getAuthenticatedUser() != null) {
             try {
-                starredWeblogs = WebloggerFactory.getWeblogger()
-                        .getWeblogManager()
-                        .getStarredWeblogsSortedByRecency(getAuthenticatedUser());
+                // Facade pattern: use StarFacade to get starred weblogs
+                starredWeblogs = starFacade.getStarredWeblogsSortedByRecency(getAuthenticatedUser());
             } catch (WebloggerException e) {
                 log.error("Error fetching starred weblogs", e);
             } catch (Exception e) {

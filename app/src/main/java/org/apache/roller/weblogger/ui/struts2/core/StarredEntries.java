@@ -20,13 +20,14 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.roller.weblogger.WebloggerException;
-import org.apache.roller.weblogger.business.WebloggerFactory;
+import org.apache.roller.weblogger.business.StarFacade;
 import org.apache.roller.weblogger.pojos.StarredWeblogEntry;
 import org.apache.roller.weblogger.ui.struts2.util.UIAction;
 
 /**
  * Displays the logged-in user's starred (favourited) weblogs with pagination.
  * This shows the same weblogs as in the main menu starred blogs section.
+ * Uses the Facade design pattern via StarFacade for star operations.
  */
 public class StarredEntries extends UIAction {
 
@@ -47,6 +48,9 @@ public class StarredEntries extends UIAction {
     /** Total number of starred weblogs. */
     private int totalWeblogs = 0;
 
+    // Facade pattern: single point of access for star operations
+    private final StarFacade starFacade = new StarFacade();
+
     public StarredEntries() {
         this.pageTitle = "starredEntries.title";
     }
@@ -63,10 +67,8 @@ public class StarredEntries extends UIAction {
             return LOGIN;
         }
         try {
-            // Get all starred weblogs - same as MainMenu
-            allStarredWeblogs = WebloggerFactory.getWeblogger()
-                    .getWeblogManager()
-                    .getStarredWeblogsSortedByRecency(getAuthenticatedUser());
+            // Facade pattern: use StarFacade to get starred weblogs
+            allStarredWeblogs = starFacade.getStarredWeblogsSortedByRecency(getAuthenticatedUser());
             
             totalWeblogs = allStarredWeblogs.size();
             
