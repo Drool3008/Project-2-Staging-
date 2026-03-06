@@ -142,6 +142,12 @@
         <put-attribute name="sidebar" value="/WEB-INF/jsps/core/MainMenuSidebar.jsp" />
         <put-attribute name="styles" value="/WEB-INF/jsps/tiles/empty.jsp" />
     </definition>
+
+    <definition name=".TrendingBlogs" extends=".tiles-mainmenupage" >
+        <put-attribute name="content" value="/WEB-INF/jsps/core/TrendingBlogs.jsp" />
+        <put-attribute name="sidebar" value="/WEB-INF/jsps/core/MainMenuSidebar.jsp" />
+        <put-attribute name="styles" value="/WEB-INF/jsps/tiles/empty.jsp" />
+    </definition>
     
     
         <!-- setup pages -->
