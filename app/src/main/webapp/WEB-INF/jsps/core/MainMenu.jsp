@@ -182,7 +182,7 @@
       <li>
         <a href='<s:property value="#item.weblog.URL"/>'><s:property value="#item.weblog.name"/></a>
         <s:if test="#item.latestPostTime != null">
-          &mdash; Last post:
+          &mdash; Last updated:
           <s:date name="#item.latestPostTime" format="MMM dd, yyyy HH:mm"/>
         </s:if>
       </li>
@@ -192,5 +192,5 @@
 
 <%-- Link to starred entries page --%>
 <p style="margin-top:10px;">
-    <a href="<s:url action="starredEntries"/>">&#9733; View My Starred Blog Posts</a>
+    <a href="<s:url action="starredEntries"/>">&#9733; View My Starred Blogs</a>
 </p>

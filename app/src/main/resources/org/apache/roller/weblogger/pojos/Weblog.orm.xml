@@ -20,7 +20,7 @@
 			<query>SELECT COUNT(w) FROM Weblog w WHERE UPPER(w.handle) like ?1</query>
 		</named-query>
 		<named-query name="Weblog.getStarredByUserSortedByRecency">
-			<query>SELECT w, (SELECT MAX(e.pubTime) FROM WeblogEntry e WHERE e.website = w) FROM Weblog w JOIN w.starredByUsers u WHERE u.id = ?1 ORDER BY 2 DESC</query>
+			<query>SELECT w, (SELECT MAX(CASE WHEN e.updateTime &gt; e.pubTime THEN e.updateTime ELSE e.pubTime END) FROM WeblogEntry e WHERE e.website = w) AS latestPost FROM Weblog w JOIN w.starredByUsers u WHERE u.id = ?1 ORDER BY latestPost DESC</query>
 		</named-query>
 		<named-query name="Weblog.countStarredByUser">
 			<query>SELECT COUNT(w) FROM Weblog w JOIN w.starredByUsers u WHERE w.id = ?1 AND u.id = ?2</query>

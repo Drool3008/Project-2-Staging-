@@ -414,6 +414,19 @@ public interface WeblogEntryManager {
     List<WeblogEntry> getStarredEntriesForUser(User user) throws WebloggerException;
 
     /**
+     * Get a page of WeblogEntries starred by the given user, ordered by pubTime DESC.
+     * @param user  the user
+     * @param offset 0-based row offset
+     * @param count  max rows to return
+     */
+    List<WeblogEntry> getStarredEntriesForUser(User user, int offset, int count) throws WebloggerException;
+
+    /**
+     * Count total WeblogEntries starred by the given user.
+     */
+    int countStarredEntriesForUser(User user) throws WebloggerException;
+
+    /**
      * Returns true if the given entry is starred by the given user.
      */
     boolean isEntryStarredByUser(User user, WeblogEntry entry) throws WebloggerException;

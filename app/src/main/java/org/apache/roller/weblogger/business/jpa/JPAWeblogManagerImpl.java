@@ -979,17 +979,60 @@ public class JPAWeblogManagerImpl implements WeblogManager {
 
     @Override
     public List<StarredWeblogEntry> getStarredWeblogsSortedByRecency(User user) throws WebloggerException {
-        Query q = strategy.getNamedQuery("Weblog.getStarredByUserSortedByRecency");
-        q.setParameter(1, user.getId());
-        List<?> rawResults = q.getResultList();
-        List<StarredWeblogEntry> results = new ArrayList<>();
-        for (Object row : rawResults) {
-            Object[] cols = (Object[]) row;
-            Weblog weblog = (Weblog) cols[0];
-            Date latestPostTime = cols[1] != null ? new Date(((java.sql.Timestamp) cols[1]).getTime()) : null;
-            results.add(new StarredWeblogEntry(weblog, latestPostTime));
+        try {
+            // Use a transaction-aware EM so all pending writes are visible,
+            // and bypass EclipseLink's shared L2 cache so we always get
+            // up-to-date pubTime values after a new entry is published.
+            jakarta.persistence.EntityManager em = strategy.getEntityManager(true);
+            Query q = em.createNamedQuery("Weblog.getStarredByUserSortedByRecency");
+            q.setHint("jakarta.persistence.cache.retrieveMode",
+                      jakarta.persistence.CacheRetrieveMode.BYPASS);
+            q.setParameter(1, user.getId());
+            List<?> rawResults = q.getResultList();
+            List<StarredWeblogEntry> results = new ArrayList<>();
+            for (Object row : rawResults) {
+                Weblog weblog;
+                Date latestPostTime = null;
+                if (row instanceof Object[]) {
+                    Object[] cols = (Object[]) row;
+                    weblog = (Weblog) cols[0];
+                    if (cols[1] != null) {
+                        latestPostTime = toDate(cols[1]);
+                    }
+                } else {
+                    // Only a Weblog was returned (no scalar column)
+                    weblog = (Weblog) row;
+                }
+                results.add(new StarredWeblogEntry(weblog, latestPostTime));
+            }
+            // Ensure most-recent-post-first ordering (NULLs last)
+            results.sort((a, b) -> {
+                if (a.getLatestPostTime() == null && b.getLatestPostTime() == null) return 0;
+                if (a.getLatestPostTime() == null) return 1;
+                if (b.getLatestPostTime() == null) return -1;
+                return b.getLatestPostTime().compareTo(a.getLatestPostTime());
+            });
+            return results;
+        } catch (jakarta.persistence.PersistenceException pe) {
+            throw new WebloggerException("Error fetching starred weblogs", pe);
         }
-        return results;
+    }
+
+    /** Convert a JPA-returned temporal value to a java.util.Date. */
+    private static Date toDate(Object ts) {
+        if (ts instanceof java.sql.Timestamp) {
+            return new Date(((java.sql.Timestamp) ts).getTime());
+        } else if (ts instanceof Date) {
+            return (Date) ts;
+        } else if (ts instanceof java.time.LocalDateTime) {
+            return Date.from(((java.time.LocalDateTime) ts)
+                    .atZone(java.time.ZoneId.systemDefault()).toInstant());
+        } else if (ts instanceof java.time.Instant) {
+            return Date.from((java.time.Instant) ts);
+        } else {
+            // fallback: epoch millis
+            return new Date(((Number) ts).longValue());
+        }
     }
 
     @Override

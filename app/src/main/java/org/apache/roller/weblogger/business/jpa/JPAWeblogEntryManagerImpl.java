@@ -1395,26 +1395,77 @@ public class JPAWeblogEntryManagerImpl implements WeblogEntryManager {
 
     @Override
     public void starEntry(User user, WeblogEntry entry) throws WebloggerException {
-        // Re-attach detached user entity so the collection change is tracked
-        User managedUser = (User) strategy.getEntityManager(true).merge(user);
-        managedUser.getStarredEntries().add(entry);
-        strategy.flush();
+        LOG.info("starEntry: user=" + user.getUserName() + ", entry=" + entry.getId());
+        try {
+            // Re-attach detached user entity so the collection change is tracked
+            User managedUser = (User) strategy.getEntityManager(true).merge(user);
+            LOG.info("starEntry: adding entry to user's starredEntries set");
+            managedUser.getStarredEntries().add(entry);
+            LOG.info("starEntry: flushing...");
+            strategy.flush();
+            LOG.info("starEntry: flush complete");
+        } catch (Exception e) {
+            LOG.error("starEntry FAILED: " + e.getMessage(), e);
+            throw new WebloggerException("Error starring entry", e);
+        }
     }
 
     @Override
     public void unstarEntry(User user, WeblogEntry entry) throws WebloggerException {
-        // Re-attach detached user entity so the collection change is tracked
-        User managedUser = (User) strategy.getEntityManager(true).merge(user);
-        managedUser.getStarredEntries().remove(entry);
-        strategy.flush();
+        LOG.info("unstarEntry: user=" + user.getUserName() + ", entry=" + entry.getId());
+        try {
+            // Re-attach detached user entity so the collection change is tracked
+            User managedUser = (User) strategy.getEntityManager(true).merge(user);
+            managedUser.getStarredEntries().remove(entry);
+            strategy.flush();
+        } catch (Exception e) {
+            LOG.error("unstarEntry FAILED: " + e.getMessage(), e);
+            throw new WebloggerException("Error unstarring entry", e);
+        }
     }
 
     @Override
     public List<WeblogEntry> getStarredEntriesForUser(User user) throws WebloggerException {
-        TypedQuery<WeblogEntry> q = strategy.getNamedQuery(
+        jakarta.persistence.EntityManager em = strategy.getEntityManager(true);
+        TypedQuery<WeblogEntry> q = em.createNamedQuery(
                 "WeblogEntry.getStarredByUser", WeblogEntry.class);
+        q.setHint("jakarta.persistence.cache.retrieveMode",
+                  jakarta.persistence.CacheRetrieveMode.BYPASS);
         q.setParameter(1, user.getId());
         return q.getResultList();
+    }
+
+    @Override
+    public List<WeblogEntry> getStarredEntriesForUser(User user, int offset, int count)
+            throws WebloggerException {
+        try {
+            jakarta.persistence.EntityManager em = strategy.getEntityManager(true);
+            TypedQuery<WeblogEntry> q = em.createNamedQuery(
+                    "WeblogEntry.getStarredByUser", WeblogEntry.class);
+            q.setHint("jakarta.persistence.cache.retrieveMode",
+                      jakarta.persistence.CacheRetrieveMode.BYPASS);
+            q.setParameter(1, user.getId());
+            q.setFirstResult(offset);
+            q.setMaxResults(count);
+            return q.getResultList();
+        } catch (jakarta.persistence.PersistenceException pe) {
+            throw new WebloggerException("Error fetching starred entries page", pe);
+        }
+    }
+
+    @Override
+    public int countStarredEntriesForUser(User user) throws WebloggerException {
+        try {
+            jakarta.persistence.EntityManager em = strategy.getEntityManager(true);
+            TypedQuery<Long> q = em.createNamedQuery(
+                    "WeblogEntry.countAllStarredByUser", Long.class);
+            q.setHint("jakarta.persistence.cache.retrieveMode",
+                      jakarta.persistence.CacheRetrieveMode.BYPASS);
+            q.setParameter(1, user.getId());
+            return q.getSingleResult().intValue();
+        } catch (jakarta.persistence.PersistenceException pe) {
+            throw new WebloggerException("Error counting starred entries", pe);
+        }
     }
 
     @Override

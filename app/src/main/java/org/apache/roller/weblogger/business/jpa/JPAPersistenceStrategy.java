@@ -21,6 +21,9 @@ package org.apache.roller.weblogger.business.jpa;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.Properties;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.roller.weblogger.WebloggerException;
@@ -107,6 +110,47 @@ public class JPAPersistenceStrategy {
                 logger.error("ERROR: creating entity manager", pe);
                 throw new WebloggerException(pe);
             }
+        }
+        // Ensure the star feature join tables exist.  For databases that were
+        // created before the star feature was added the tables will be missing.
+        // We catch "table already exists" silently so this is always safe to run.
+        ensureStarTablesExist(dbProvider);
+    }
+
+    /**
+     * Creates user_starred_weblog and user_starred_entry join tables if they do
+     * not already exist.  This handles databases that were initialised before the
+     * star (favourite) feature was introduced.  Any "object already exists" SQL
+     * errors are silently ignored so the method is safe to call on every startup.
+     */
+    private void ensureStarTablesExist(DatabaseProvider dbProvider) {
+        String[] ddl = {
+            "CREATE TABLE user_starred_weblog ("
+                + "user_id VARCHAR(48) NOT NULL, "
+                + "weblog_id VARCHAR(48) NOT NULL, "
+                + "PRIMARY KEY (user_id, weblog_id))",
+            "CREATE TABLE user_starred_entry ("
+                + "user_id VARCHAR(48) NOT NULL, "
+                + "entry_id VARCHAR(48) NOT NULL, "
+                + "PRIMARY KEY (user_id, entry_id))"
+        };
+        try (Connection con = dbProvider.getConnection()) {
+            con.setAutoCommit(true);
+            for (String sql : ddl) {
+                try (Statement st = con.createStatement()) {
+                    st.execute(sql);
+                    logger.info("Created table: " + sql.substring(0, sql.indexOf('(')));
+                } catch (SQLException ex) {
+                    // Ignore "table/object already exists" — SQLState varies by DB:
+                    // Derby: X0Y32, MySQL: 42S01, PostgreSQL: 42P07
+                    String state = ex.getSQLState();
+                    if (state == null || (!state.startsWith("X0Y32") && !state.startsWith("42"))) {
+                        logger.warn("Could not create star join table (ignored): " + ex.getMessage());
+                    }
+                }
+            }
+        } catch (SQLException ex) {
+            logger.warn("Could not obtain JDBC connection to ensure star tables: " + ex.getMessage());
         }
     }
     /**
