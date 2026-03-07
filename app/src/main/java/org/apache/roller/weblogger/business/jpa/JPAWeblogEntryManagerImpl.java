@@ -52,6 +52,12 @@ import org.apache.roller.weblogger.pojos.WeblogEntryAttribute;
 import org.apache.roller.weblogger.pojos.StatCountCountComparator;
 import org.apache.roller.util.DateUtil;
 import org.apache.roller.weblogger.business.WeblogEntryManager;
+import org.apache.roller.weblogger.business.moderation.ContentProcessingPipeline;
+import org.apache.roller.weblogger.business.moderation.HtmlSanitizationStep;
+import org.apache.roller.weblogger.business.moderation.ModerationConfig;
+import org.apache.roller.weblogger.business.moderation.PiiScrubbingStep;
+import org.apache.roller.weblogger.business.moderation.ProfanityFilterStep;
+import org.apache.roller.weblogger.business.moderation.SpamDetectionStep;
 
 
 /**
@@ -236,6 +242,18 @@ public class JPAWeblogEntryManagerImpl implements WeblogEntryManager {
             entry.setStatus(PubStatus.SCHEDULED);
         }
         
+        // Chain of Responsibility: run moderation pipeline before saving
+        ModerationConfig moderationConfig = new ModerationConfig();
+        ContentProcessingPipeline pipeline = new ContentProcessingPipeline(
+            java.util.Arrays.asList(
+                new SpamDetectionStep(moderationConfig),
+                new HtmlSanitizationStep(moderationConfig),
+                new PiiScrubbingStep(moderationConfig),
+                new ProfanityFilterStep(moderationConfig)
+            )
+        );
+        pipeline.process(entry);
+
         // Store value object (creates new or updates existing)
         entry.setUpdateTime(new Timestamp(new Date().getTime()));
         

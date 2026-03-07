@@ -382,6 +382,13 @@ limitations under the License.
             <version>${commons-lang3.version}</version>
         </dependency>
 
+        <!-- Task 2: OWASP Java HTML Sanitizer for HtmlSanitizationStep -->
+        <dependency>
+            <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+            <artifactId>owasp-java-html-sanitizer</artifactId>
+            <version>20220608.1</version>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.xmlrpc</groupId>
             <artifactId>xmlrpc-common</artifactId>
