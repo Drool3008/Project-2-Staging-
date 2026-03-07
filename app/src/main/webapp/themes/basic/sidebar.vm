@@ -1,5 +1,61 @@
 ## sidebar contents
     <!-- sidebar -->
+    <style>
+        .translation-widget {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px 0;
+        }
+        .translation-chip {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            background: #f8f9fa;
+            color: #495057;
+            text-decoration: none;
+            font-size: 0.9em;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid #e9ecef;
+            font-weight: 500;
+        }
+        .translation-chip:hover {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,123,255,0.2);
+            text-decoration: none;
+        }
+        .translation-chip.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+    <h2>Translate Content</h2>
+    <div class="sidebar">
+        ## Preserve current provider when clicking language chips
+        #set($currentProvider = $model.request.getParameter('provider'))
+        #if(!$currentProvider || $currentProvider == '')
+            #set($currentProvider = 'SarvamProvider')
+        #end
+        <div class="translation-widget">
+            <a href="?lang=en&amp;provider=$currentProvider" class="translation-chip #if(!$model.request.getParameter('lang'))active#end">EN — English</a>
+            <a href="?lang=hi&amp;provider=$currentProvider" class="translation-chip #if($model.request.getParameter('lang') == 'hi')active#end">HI — हिन्दी</a>
+            <a href="?lang=bn&amp;provider=$currentProvider" class="translation-chip #if($model.request.getParameter('lang') == 'bn')active#end">BN — বাংলা</a>
+            <a href="?lang=ta&amp;provider=$currentProvider" class="translation-chip #if($model.request.getParameter('lang') == 'ta')active#end">TA — தமிழ்</a>
+            <a href="?lang=te&amp;provider=$currentProvider" class="translation-chip #if($model.request.getParameter('lang') == 'te')active#end">TE — తెలుగు</a>
+            <a href="?lang=mr&amp;provider=$currentProvider" class="translation-chip #if($model.request.getParameter('lang') == 'mr')active#end">MR — मराठी</a>
+        </div>
+        <p style="font-size:11px;color:#999;margin-top:6px;">
+            Provider:
+            <a href="?#if($model.request.getParameter('lang'))lang=$model.request.getParameter('lang')&amp;#end provider=SarvamProvider" style="color:#007bff;text-decoration:none;font-weight:#if($currentProvider=='SarvamProvider')700#else400#end;">Sarvam AI</a>
+            ·
+            <a href="?#if($model.request.getParameter('lang'))lang=$model.request.getParameter('lang')&amp;#end provider=GoogleTranslateProvider" style="color:#007bff;text-decoration:none;font-weight:#if($currentProvider=='GoogleTranslateProvider')700#else400#end;">Google Translate</a>
+        </p>
+    </div>
     <h2>Calendar</h2>
     <div class="sidebar">
     #showWeblogEntryCalendar($model.weblog "nil")
