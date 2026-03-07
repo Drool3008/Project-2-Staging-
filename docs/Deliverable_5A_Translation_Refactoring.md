@@ -107,6 +107,35 @@ classDiagram
 ### 2.1. Strategy Pattern
 *   **Purpose**: To allow the core application to switch translation backends dynamically without changing its internal logic.
 *   **Implementation**: A `TranslationProvider` interface acts as the Strategy contract. `MockTranslationProvider`, `SarvamTranslationProvider`, and `GoogleTranslateProvider` represent the concrete strategies.
+    
+    ```mermaid
+    classDiagram
+        class TranslationProvider {
+            <<interface>>
+            <<strategy>>
+            +translate(TranslationRequest) TranslationResult
+            +getName() String
+            +supports(Language) boolean
+        }
+        class MockTranslationProvider {
+            +translate(TranslationRequest) TranslationResult
+        }
+        class SarvamTranslationProvider {
+            +translate(TranslationRequest) TranslationResult
+        }
+        class GoogleTranslateProvider {
+            +translate(TranslationRequest) TranslationResult
+        }
+        class TranslationServiceImpl {
+            -TranslationProvider provider
+            +translateEntry(...)
+        }
+        
+        MockTranslationProvider ..|> TranslationProvider : "implements"
+        SarvamTranslationProvider ..|> TranslationProvider : "implements"
+        GoogleTranslateProvider ..|> TranslationProvider : "implements"
+        TranslationServiceImpl --> TranslationProvider : "delegates to"
+    ```
 
 ### 2.2. Decorator Pattern
 *   **Purpose**: To augment the behavior of existing Roller classes strictly within the presentation/rendering layer without modifying the persistence model or the database schema.
@@ -115,19 +144,116 @@ classDiagram
     *   `TranslatedPageModel` decorates `PageModel` to inject the active `Language` and `TranslationProvider` contexts derived from request parameters.
     *   `TranslatedWeblogEntriesPager` decorates `WeblogEntriesPager` to intercept listing rendering, ensuring entire lists of blog posts are translated together.
 
+    ```mermaid
+    classDiagram
+        class PageModel {
+            <<interface>>
+            +getWeblogEntry() WeblogEntry
+        }
+        class TranslatedPageModel {
+            <<decorator>>
+            -PageModel delegate
+            +getWeblogEntry() TranslatedWeblogEntry
+        }
+        TranslatedPageModel ..|> PageModel : "implements"
+        TranslatedPageModel --> PageModel : "wraps / delegates"
+        
+        class WeblogEntry {
+            +getTitle() String
+            +getText() String
+        }
+        class TranslatedWeblogEntry {
+            <<decorator>>
+            -WeblogEntry delegate
+            -TranslatableContent translatedContext
+            +getTitle() String
+            +getText() String
+        }
+        TranslatedWeblogEntry --|> WeblogEntry : "extends (decorates)"
+        TranslatedPageModel ..> TranslatedWeblogEntry : "returns"
+    ```
+
 ### 2.3. Factory Pattern
 *   **Purpose**: To centralize and abstract object creation.
 *   **Implementation**: 
     *   `TranslationProviderFactory` maintains a registry of available providers and returns the appropriate implementation based on the `provider` query parameter or system default.
     *   `TranslationServiceFactory` encapsulates the logic to provide the active singleton `TranslationService`.
 
+    ```mermaid
+    classDiagram
+        class TranslationProviderFactory {
+            <<factory>>
+            -Map~String, TranslationProvider~ registry
+            +getProvider(String name) TranslationProvider
+            +getDefaultProvider() TranslationProvider
+            +registerProvider(TranslationProvider)
+        }
+        class TranslationServiceFactory {
+            <<factory>>
+            -TranslationService instance
+            +getTranslationService() TranslationService
+        }
+        class TranslationProvider {
+            <<interface>>
+        }
+        class TranslationService {
+            <<interface>>
+        }
+        
+        TranslationProviderFactory --> TranslationProvider : "Validates & Creates"
+        TranslationServiceFactory --> TranslationService : "Constructs singleton"
+    ```
+
 ### 2.4. Adapter Pattern
 *   **Purpose**: To decouple the translation providers from the Roller-specific `WeblogEntry` persistence object.
 *   **Implementation**: `ContentMapper` adapts the heavy `WeblogEntry` entity into a lightweight, framework-agnostic `TranslatableContent` DTO.
 
+    ```mermaid
+    classDiagram
+        class WeblogEntry {
+            <<entity>>
+            +getId() String
+            +getAnchor() String
+            +getTitle() String
+            +getPlugins() String
+            +getCategory() WeblogCategory
+        }
+        class TranslatableContent {
+            <<dto>>
+            +String title
+            +String text
+            +String summary
+        }
+        class ContentMapper {
+            <<adapter>>
+            +toTranslatableContent(WeblogEntry) TranslatableContent
+        }
+        
+        ContentMapper ..> WeblogEntry : "Reads from (Adaptee)"
+        ContentMapper ..> TranslatableContent : "Returns (Target)"
+    ```
+
 ### 2.5. Singleton Pattern
 *   **Purpose**: To manage unified application state, particularly the translation cache.
 *   **Implementation**: `TranslationServiceFactory` initializes and returns a single `TranslationServiceImpl` instance.
+
+    ```mermaid
+    classDiagram
+        class TranslationServiceFactory {
+            <<factory>>
+            -TranslationService serviceInstance$
+            -Object lock$
+            +getTranslationService() TranslationService$
+        }
+        class TranslationServiceImpl {
+            <<singleton>>
+            -ConcurrentHashMap cache
+            -TranslationProviderFactory providerFactory
+            ~TranslationServiceImpl()
+        }
+        
+        TranslationServiceFactory --> TranslationServiceImpl : "lazily initializes exactly 1 instance\n(Double-Checked Locking)"
+    ```
 
 ---
 
