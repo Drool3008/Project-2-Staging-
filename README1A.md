@@ -90,7 +90,7 @@ The Problem (Actual Code — Before Refactoring)
 Before StarFacade was introduced, 4 separate UI classes all reached
 directly into the business layer, knowing which manager owns which operation:
 
-StarAction.java — 8 direct manager calls:
+#### StarAction.java — 8 direct manager calls:
 
 ``` java
 // starWeblog()
@@ -104,21 +104,21 @@ WebloggerFactory.getWeblogger().getWeblogEntryManager().starEntry(user, entry);
 // unstarWeblog(), unstarEntry() — same pattern, 4 more calls
 ```
 
-MainMenu.java — Line 67–69:
+#### MainMenu.java — Line 67–69:
 
 ``` java
 starredWeblogs = WebloggerFactory.getWeblogger()
         .getWeblogManager()
         .getStarredWeblogsSortedByRecency(getAuthenticatedUser());
 ```
-StarredEntries.java — Line 67–69:
+#### StarredEntries.java — Line 67–69:
 
 ``` java
 allStarredWeblogs = WebloggerFactory.getWeblogger()
         .getWeblogManager()
         .getStarredWeblogsSortedByRecency(getAuthenticatedUser());
 ```
-PageModel.java — Lines 366–410:
+#### PageModel.java — Lines 366–410:
 
 ``` java
 // isWeblogStarred()
@@ -138,19 +138,20 @@ Total: 13 direct manager call sites across 4 UI classes.
 
 ## Coupling Map (Before Facade)
 
-StarAction     ──── WeblogManager      (getWeblog, starWeblog, unstarWeblog)
-StarAction     ──── WeblogEntryManager (getWeblogEntry, starEntry, unstarEntry)
+#### StarAction     ──── WeblogManager      (getWeblog, starWeblog, unstarWeblog)
+#### StarAction     ──── WeblogEntryManager (getWeblogEntry, starEntry, unstarEntry)
+#### MainMenu       ──── WeblogManager      (getStarredWeblogsSortedByRecency)
+#### StarredEntries ──── WeblogManager      (getStarredWeblogsSortedByRecency)
+#### PageModel      ──── WeblogManager      (isWeblogStarredByUser)
+#### PageModel      ──── WeblogEntryManager (isEntryStarredByUser ×2, getWeblogEntry)
 
-MainMenu       ──── WeblogManager      (getStarredWeblogsSortedByRecency)
+---
 
-StarredEntries ──── WeblogManager      (getStarredWeblogsSortedByRecency)
+#### Every UI class knows the internal structure of the business layer.
 
-PageModel      ──── WeblogManager      (isWeblogStarredByUser)
-PageModel      ──── WeblogEntryManager (isEntryStarredByUser ×2, getWeblogEntry)
+---
 
-Every UI class knows the internal structure of the business layer.
-
-### The Solution: StarFacade.java
+#### The Solution: StarFacade.java
 `StarFacade` is a single class that wraps both `WeblogManager` and
 `WeblogEntryManager`. UI classes only talk to the facade — they no longer
 know which manager handles which operation.
@@ -186,13 +187,16 @@ public class StarFacade {
         return entryManager.getStarredEntriesForUser(user);
     }
 }
-``` 
+```
+
 Rule: StarFacade only delegates — zero business logic inside it.
 All JPQL, DB access, and business rules stay in the manager implementations.
 
-## Caller Changes After Facade
+---
 
-StarAction.java:
+### Caller Changes After Facade
+
+#### StarAction.java:
 
 ``` java
 // Before (×8 manager calls)
@@ -205,7 +209,7 @@ starFacade.starWeblog(user, weblog);
 starFacade.starEntry(user, entry);
 ```
 
-MainMenu.java + StarredEntries.java:
+#### MainMenu.java + StarredEntries.java:
 
 ``` java
 // Before
@@ -218,7 +222,7 @@ starFacade.getStarredWeblogsSortedByRecency(user);
 
 ```
 
-PageModel.java:
+#### PageModel.java:
 
 ``` java
 // Before
@@ -229,6 +233,7 @@ WebloggerFactory.getWeblogger().getWeblogManager()
 StarFacade starFacade = new StarFacade();
 starFacade.isWeblogStarred(pageRequest.getUser(), weblog);
 ```
+---
 
 ### Without the Facade — What Breaks
 
@@ -243,6 +248,8 @@ one constructor.
 Unit testing is harder — mocking StarAction requires setting up
 2 separate manager mocks; with StarFacade, only 1 mock is needed.
 
+---
+
 
 | Attribute       | Impact                                                                                       |
 | --------------- | -------------------------------------------------------------------------------------------- |
@@ -250,3 +257,5 @@ Unit testing is harder — mocking StarAction requires setting up
 | Modularity      | UI layer has zero knowledge of whether an operation uses WeblogManager or WeblogEntryManager |
 | Extensibility   | New star targets (comments, tags) only require adding methods to StarFacade                  |
 | Testability     | UI classes can be tested by injecting a single mock StarFacade instead of two manager mocks  |
+
+---
