@@ -382,11 +382,29 @@ limitations under the License.
             <version>${commons-lang3.version}</version>
         </dependency>
 
-        <!-- Task 2: OWASP Java HTML Sanitizer for HtmlSanitizationStep -->
+        <!-- Task 2: OWASP Java HTML Sanitizer for HtmlSanitizationStep.
+             Guava is excluded here because the transitive 30.1-jre it carries
+             is older than what Guice 7.0.0 requires (buildOrThrow() added in 31.0).
+             Guava is pinned explicitly below at 32.1.3-jre instead. -->
         <dependency>
             <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
             <artifactId>owasp-java-html-sanitizer</artifactId>
             <version>20220608.1</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>guava</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- Explicit Guava pin: must be ≥ 31.0 so Guice 7.0.0 can find
+             ImmutableMap.Builder.buildOrThrow(). OWASP 20220608.1 works
+             fine with any 32.x version. -->
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>32.1.3-jre</version>
         </dependency>
 
         <dependency>
