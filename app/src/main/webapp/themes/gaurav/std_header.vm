@@ -95,4 +95,6 @@
 	</div><!-- /.container -->
 </nav>
 
+#includeTemplate($model.weblog "translation_bar")
+
 

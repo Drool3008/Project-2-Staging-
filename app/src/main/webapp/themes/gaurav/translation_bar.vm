@@ -1,0 +1,312 @@
+## Translation Bar — Secondary Navbar Style
+## Sits directly below the main Bootstrap navbar, matching its design system.
+## Works globally on all page types (listing, entry, search, archives).
+## Note: Uses JS to read URL params since #includeTemplate context may not expose request params.
+
+<style>
+    /* ------------------------------------------------------------------ */
+    /* Translation secondary navbar                                         */
+    /* ------------------------------------------------------------------ */
+    .translation-subnav {
+        background: #1a1a2e;           /* deep navy — contrasts main dark nav */
+        border-bottom: 2px solid #e44d26;
+        padding: 0;
+        z-index: 999;
+        position: sticky;
+        top: 0;
+        width: 100%;
+    }
+
+    .translation-subnav .container {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0;
+        min-height: 44px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+    }
+
+    /* Left group: detected language pill + dropdowns */
+    .ts-left {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    /* Right group: action buttons */
+    .ts-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* "🌐 English detected" pill */
+    .ts-detected {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: rgba(255,255,255,0.07);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 4px;
+        padding: 3px 10px;
+        font-size: 12px;
+        font-weight: 500;
+        color: #adb5bd;
+        white-space: nowrap;
+        min-width: 160px;
+    }
+
+    .ts-detected .ts-globe {
+        font-size: 14px;
+    }
+
+    /* Active translation indicator */
+    .ts-active-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: rgba(228, 77, 38, 0.18);
+        border: 1px solid rgba(228, 77, 38, 0.4);
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-size: 10px;
+        font-weight: 700;
+        color: #e44d26;
+        margin-left: 4px;
+        display: none; /* shown via JS if lang param present */
+    }
+
+    /* Divider between sections */
+    .ts-divider {
+        width: 1px;
+        height: 22px;
+        background: rgba(255,255,255,0.12);
+        flex-shrink: 0;
+    }
+
+    /* Labels: "Translate to" / "via" */
+    .ts-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        white-space: nowrap;
+    }
+
+    /* Native selects styled to blend with dark navbar */
+    .ts-select {
+        appearance: none;
+        -webkit-appearance: none;
+        background: rgba(255,255,255,0.07) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236c757d'/%3E%3C/svg%3E") no-repeat right 10px center;
+        background-size: 8px;
+        border: 1px solid rgba(255,255,255,0.14);
+        border-radius: 4px;
+        color: #e8eaf0;
+        font-size: 13px;
+        font-weight: 500;
+        padding: 4px 28px 4px 10px;
+        cursor: pointer;
+        transition: border-color 0.15s;
+        outline: none;
+        max-width: 220px;
+    }
+
+    .ts-select:hover,
+    .ts-select:focus {
+        border-color: #e44d26;
+        background-color: rgba(255,255,255,0.11);
+    }
+
+    .ts-select option {
+        background: #1a1a2e;
+        color: #e8eaf0;
+    }
+
+    /* Translate button — uses Bootstrap-like btn but orange accent */
+    .btn-ts-translate {
+        background: #e44d26;
+        color: #fff !important;
+        border: none;
+        border-radius: 4px;
+        padding: 5px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        line-height: 1.5;
+        transition: background 0.15s, transform 0.1s;
+        text-decoration: none !important;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .btn-ts-translate:hover {
+        background: #c0392b;
+        transform: translateY(-1px);
+    }
+
+    /* "Show Original" link-style button */
+    .btn-ts-original {
+        background: transparent;
+        color: #adb5bd !important;
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 4px;
+        padding: 4px 12px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        text-decoration: none !important;
+        transition: all 0.15s;
+        display: none; /* shown via JS if lang param present */
+        align-items: center;
+        gap: 4px;
+    }
+
+    .btn-ts-original:hover {
+        color: #fff !important;
+        border-color: rgba(255,255,255,0.35);
+        text-decoration: none;
+    }
+
+    /* Responsive collapse */
+    @media (max-width: 767px) {
+        .translation-subnav .container {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+            padding-top: 8px;
+            padding-bottom: 8px;
+        }
+        .ts-left, .ts-right {
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .ts-divider { display: none; }
+        .ts-select { max-width: 100%; }
+    }
+</style>
+
+<nav class="translation-subnav" id="translationSubnav" role="navigation" aria-label="Translation controls">
+    <div class="container">
+        <div class="ts-left">
+            <span class="ts-detected" id="ts-detected-label">
+                <span class="ts-globe">🌐</span>
+                <span id="ts-status-text">Auto-detect language</span>
+                <span class="ts-active-badge" id="ts-active-badge">● Active</span>
+            </span>
+
+            <div class="ts-divider"></div>
+
+            <span class="ts-label">Translate to</span>
+            <select class="ts-select" id="ts-lang" aria-label="Target language">
+                <option value="" disabled>— Choose language —</option>
+                <option value="en">English</option>
+                <option value="hi">हिन्दी — Hindi</option>
+                <option value="bn">বাংলা — Bengali</option>
+                <option value="ta">தமிழ் — Tamil</option>
+                <option value="te">తెలుగు — Telugu</option>
+                <option value="mr">मराठी — Marathi</option>
+                <option value="gu">ગુજરાતી — Gujarati</option>
+                <option value="kn">ಕನ್ನಡ — Kannada</option>
+                <option value="ml">മലയാളം — Malayalam</option>
+                <option value="pa">ਪੰਜਾਬੀ — Punjabi</option>
+                <option value="ur">اردو — Urdu</option>
+                <option value="fr">Français — French</option>
+                <option value="de">Deutsch — German</option>
+                <option value="es">Español — Spanish</option>
+                <option value="ja">日本語 — Japanese</option>
+                <option value="zh">中文 — Chinese</option>
+                <option value="ar">عربي — Arabic</option>
+                <option value="pt">Português — Portuguese</option>
+                <option value="ru">Русский — Russian</option>
+            </select>
+
+            <div class="ts-divider"></div>
+
+            <span class="ts-label">via</span>
+            <select class="ts-select" id="ts-provider" aria-label="Translation provider">
+                <option value="SarvamProvider">Sarvam AI</option>
+                <option value="GoogleTranslateProvider">Google Translate</option>
+            </select>
+        </div>
+
+        <div class="ts-right">
+            <button class="btn-ts-translate" onclick="tsApply()" id="ts-btn-translate">
+                ✦ Translate
+            </button>
+            <a href="#" class="btn-ts-original" onclick="tsRevert(); return false;" id="ts-btn-original">
+                ↺ Original
+            </a>
+        </div>
+    </div>
+</nav>
+
+<script>
+(function() {
+    // Read URL params — reliable regardless of Velocity context
+    var params = new URLSearchParams(window.location.search);
+    var currentLang = params.get('lang') || '';
+    var currentProvider = params.get('provider') || 'SarvamProvider';
+
+    var langSelect     = document.getElementById('ts-lang');
+    var providerSelect = document.getElementById('ts-provider');
+    var statusText     = document.getElementById('ts-status-text');
+    var activeBadge    = document.getElementById('ts-active-badge');
+    var btnOriginal    = document.getElementById('ts-btn-original');
+
+    // Pre-select dropdowns from URL
+    if (currentLang) {
+        langSelect.value = currentLang;
+        // Show active state in the detected label
+        var selectedOpt = langSelect.options[langSelect.selectedIndex];
+        if (selectedOpt && selectedOpt.value) {
+            statusText.textContent = 'Translated to: ' + selectedOpt.text.split('—')[0].trim();
+        }
+        activeBadge.style.display  = 'inline-flex';
+        btnOriginal.style.display  = 'inline-flex';
+    } else {
+        langSelect.value = '';
+    }
+
+    if (currentProvider) {
+        providerSelect.value = currentProvider;
+    }
+
+    function tsApply() {
+        var lang     = langSelect.value;
+        var provider = providerSelect.value;
+        if (!lang) {
+            alert('Please select a target language first.');
+            return;
+        }
+        var url = new URL(window.location.href);
+        url.searchParams.set('lang', lang);
+        url.searchParams.set('provider', provider);
+        window.location.href = url.toString();
+    }
+
+    function tsRevert() {
+        var url = new URL(window.location.href);
+        url.searchParams.delete('lang');
+        url.searchParams.delete('provider');
+        window.location.href = url.toString();
+    }
+
+    // Expose globally for inline onclick
+    window.tsApply  = tsApply;
+    window.tsRevert = tsRevert;
+
+    // Allow Enter key in selects
+    [langSelect, providerSelect].forEach(function(el) {
+        if (el) {
+            el.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') tsApply();
+            });
+        }
+    });
+})();
+</script>

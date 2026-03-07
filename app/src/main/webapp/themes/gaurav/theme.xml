@@ -139,6 +139,18 @@
     </template>
 
     <template action="custom">
+        <name>translation_bar</name>
+        <description>Floating bar for translation control</description>
+        <navbar>false</navbar>
+        <hidden>true</hidden>
+        <contentType>text/html</contentType>
+        <rendition>
+            <contentsFile>translation_bar.vm</contentsFile>
+            <templateLanguage>velocity</templateLanguage>
+        </rendition>
+    </template>
+
+    <template action="custom">
         <name>standard_footer</name>
         <description>For footer of each page</description>
         <navbar>false</navbar>
