@@ -103,3 +103,150 @@ WebloggerFactory.getWeblogger().getWeblogEntryManager().starEntry(user, entry);
 
 // unstarWeblog(), unstarEntry() — same pattern, 4 more calls
 ```
+
+MainMenu.java — Line 67–69:
+
+``` java
+starredWeblogs = WebloggerFactory.getWeblogger()
+        .getWeblogManager()
+        .getStarredWeblogsSortedByRecency(getAuthenticatedUser());
+```
+StarredEntries.java — Line 67–69:
+
+``` java
+allStarredWeblogs = WebloggerFactory.getWeblogger()
+        .getWeblogManager()
+        .getStarredWeblogsSortedByRecency(getAuthenticatedUser());
+```
+PageModel.java — Lines 366–410:
+
+``` java
+// isWeblogStarred()
+WebloggerFactory.getWeblogger().getWeblogManager()
+        .isWeblogStarredByUser(pageRequest.getUser(), weblog);
+
+// isEntryStarred()
+WebloggerFactory.getWeblogger().getWeblogEntryManager()
+        .isEntryStarredByUser(pageRequest.getUser(), entry);
+
+// isEntryStarred(WeblogEntryWrapper) — 2 more calls
+WebloggerFactory.getWeblogger().getWeblogEntryManager().getWeblogEntry(...);
+WebloggerFactory.getWeblogger().getWeblogEntryManager().isEntryStarredByUser(...);
+```
+
+Total: 13 direct manager call sites across 4 UI classes.
+
+## Coupling Map (Before Facade)
+
+StarAction     ──── WeblogManager      (getWeblog, starWeblog, unstarWeblog)
+StarAction     ──── WeblogEntryManager (getWeblogEntry, starEntry, unstarEntry)
+
+MainMenu       ──── WeblogManager      (getStarredWeblogsSortedByRecency)
+
+StarredEntries ──── WeblogManager      (getStarredWeblogsSortedByRecency)
+
+PageModel      ──── WeblogManager      (isWeblogStarredByUser)
+PageModel      ──── WeblogEntryManager (isEntryStarredByUser ×2, getWeblogEntry)
+
+Every UI class knows the internal structure of the business layer.
+
+### The Solution: StarFacade.java
+`StarFacade` is a single class that wraps both `WeblogManager` and
+`WeblogEntryManager`. UI classes only talk to the facade — they no longer
+know which manager handles which operation.
+
+``` java
+public class StarFacade {
+
+    private final WeblogManager weblogManager;
+    private final WeblogEntryManager entryManager;
+
+    public StarFacade() throws WebloggerException {
+        this.weblogManager  = WebloggerFactory.getWeblogger().getWeblogManager();
+        this.entryManager   = WebloggerFactory.getWeblogger().getWeblogEntryManager();
+    }
+
+    // --- Weblog star operations ---
+    public void starWeblog(User user, Weblog weblog)   throws WebloggerException { weblogManager.starWeblog(user, weblog); }
+    public void unstarWeblog(User user, Weblog weblog) throws WebloggerException { weblogManager.unstarWeblog(user, weblog); }
+    public boolean isWeblogStarred(User user, Weblog weblog) throws WebloggerException {
+        return weblogManager.isWeblogStarredByUser(user, weblog);
+    }
+    public List<StarredWeblogEntry> getStarredWeblogsSortedByRecency(User user) throws WebloggerException {
+        return weblogManager.getStarredWeblogsSortedByRecency(user);
+    }
+
+    // --- Entry star operations ---
+    public void starEntry(User user, WeblogEntry entry)   throws WebloggerException { entryManager.starEntry(user, entry); }
+    public void unstarEntry(User user, WeblogEntry entry) throws WebloggerException { entryManager.unstarEntry(user, entry); }
+    public boolean isEntryStarred(User user, WeblogEntry entry) throws WebloggerException {
+        return entryManager.isEntryStarredByUser(user, entry);
+    }
+    public List<WeblogEntry> getStarredEntriesForUser(User user) throws WebloggerException {
+        return entryManager.getStarredEntriesForUser(user);
+    }
+}
+``` 
+Rule: StarFacade only delegates — zero business logic inside it.
+All JPQL, DB access, and business rules stay in the manager implementations.
+
+## Caller Changes After Facade
+
+StarAction.java:
+
+``` java
+// Before (×8 manager calls)
+WebloggerFactory.getWeblogger().getWeblogManager().starWeblog(user, weblog);
+WebloggerFactory.getWeblogger().getWeblogEntryManager().starEntry(user, entry);
+
+// After (×1 facade call each)
+StarFacade starFacade = new StarFacade();
+starFacade.starWeblog(user, weblog);
+starFacade.starEntry(user, entry);
+```
+
+MainMenu.java + StarredEntries.java:
+
+``` java
+// Before
+WebloggerFactory.getWeblogger().getWeblogManager()
+        .getStarredWeblogsSortedByRecency(user);
+
+// After
+StarFacade starFacade = new StarFacade();
+starFacade.getStarredWeblogsSortedByRecency(user);
+
+```
+
+PageModel.java:
+
+``` java
+// Before
+WebloggerFactory.getWeblogger().getWeblogManager()
+        .isWeblogStarredByUser(pageRequest.getUser(), weblog);
+
+// After
+StarFacade starFacade = new StarFacade();
+starFacade.isWeblogStarred(pageRequest.getUser(), weblog);
+```
+
+### Without the Facade — What Breaks
+
+Adding a new star operation (e.g. starring a comment in Task 2) means
+updating StarAction, MainMenu, StarredEntries, and PageModel — a
+minimum of 4 files every time instead of only StarFacade.
+
+A bug in manager acquisition (e.g. WebloggerFactory.getWeblogger()
+throwing in a specific context) must be fixed in 13 call sites instead of
+one constructor.
+
+Unit testing is harder — mocking StarAction requires setting up
+2 separate manager mocks; with StarFacade, only 1 mock is needed.
+
+
+| Attribute       | Impact                                                                                       |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| Maintainability | Star subsystem internals can change without touching any UI class                            |
+| Modularity      | UI layer has zero knowledge of whether an operation uses WeblogManager or WeblogEntryManager |
+| Extensibility   | New star targets (comments, tags) only require adding methods to StarFacade                  |
+| Testability     | UI classes can be tested by injecting a single mock StarFacade instead of two manager mocks  |
