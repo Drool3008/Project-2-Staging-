@@ -35,6 +35,10 @@ import org.apache.roller.weblogger.pojos.WeblogEntry.PubStatus;
  *   1. Presence of known spam trigger phrases (case-insensitive substring match)
  *   2. External link density exceeds configurable threshold (links / words)
  *   3. Excessive ALL-CAPS word ratio exceeds configurable threshold
+ *   4. Character-flood attack — a single character occupies ≥ 70% of the body
+ *      (e.g. "aaaaaaa...aaa", "!!!!!!!", "11111111")
+ *   5. Gibberish-word ratio — ≥ 60% of words contain no vowels or consist of
+ *      a single character repeated ≥ 5 times (catches "aaaa", "zzzz", "xxxxx")
  *
  * If any signal is found, the entry status is set to PubStatus.PENDING
  * (quarantined for admin review). The post is NOT deleted.
@@ -100,6 +104,59 @@ public class SpamDetectionStep implements ContentProcessingStep {
             if (capsRatio > config.getCapsRatioThreshold()) {
                 flagPost(entry, "Excessive CAPS: "
                         + String.format("%.0f", capsRatio * 100) + "% words in CAPS");
+                return;
+            }
+        }
+
+        // Check 4: character-flood attack
+        // Detects posts like "aaaaaaa...aaa" where one character dominates.
+        if (body.length() > 20) {
+            int totalChars = body.length();
+            // Count frequency of every character, find the maximum
+            int[] freq = new int[Character.MAX_VALUE + 1];
+            for (char c : body.toCharArray()) {
+                freq[c]++;
+            }
+            int maxFreq = 0;
+            for (int f : freq) {
+                if (f > maxFreq) maxFreq = f;
+            }
+            double floodRatio = (double) maxFreq / totalChars;
+            if (floodRatio >= config.getCharFloodThreshold()) {
+                // Find which character it is (for the log message)
+                char floodChar = 0;
+                for (int i = 0; i <= Character.MAX_VALUE; i++) {
+                    if (freq[i] == maxFreq) { floodChar = (char) i; break; }
+                }
+                flagPost(entry, "Character flood: '"
+                        + floodChar + "' occupies "
+                        + String.format("%.0f", floodRatio * 100)
+                        + "% of body (" + maxFreq + "/" + totalChars + " chars)");
+                return;
+            }
+        }
+
+        // Check 5: gibberish-word ratio
+        // A word is considered gibberish if:
+        //   (a) it has no vowels at all (e.g. "xzk", "phhh"), OR
+        //   (b) it is a single character repeated ≥ 5 times (e.g. "aaaaa", "zzzzz")
+        if (wordCount > 0) {
+            long gibberishCount = Arrays.stream(words)
+                .filter(w -> {
+                    String lower = w.toLowerCase().replaceAll("[^a-z]", "");
+                    if (lower.length() < 3) return false;               // too short to judge
+                    boolean noVowels = !lower.matches(".*[aeiou].*");
+                    boolean singleCharRepeat = lower.chars().distinct().count() == 1
+                                              && lower.length() >= 5;
+                    return noVowels || singleCharRepeat;
+                })
+                .count();
+            double gibberishRatio = (double) gibberishCount / wordCount;
+            if (gibberishRatio >= config.getGibberishWordRatio()) {
+                flagPost(entry, "Gibberish content: "
+                        + String.format("%.0f", gibberishRatio * 100)
+                        + "% of words are gibberish ("
+                        + gibberishCount + "/" + wordCount + ")");
                 return;
             }
         }

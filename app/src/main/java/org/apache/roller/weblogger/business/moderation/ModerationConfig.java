@@ -36,6 +36,20 @@ public class ModerationConfig {
     /** Max fraction of ALL-CAPS words before post is flagged. */
     private double capsRatioThreshold   = 0.30;   // 30% words fully caps
 
+    /**
+     * Max fraction a single character may occupy across the entire body.
+     * A body of "aaaaaaa...aaa" has a single-char ratio of 1.0.
+     * Default 0.70 = flag when one character is ≥ 70% of all characters.
+     */
+    private double charFloodThreshold  = 0.70;
+
+    /**
+     * Max fraction of words that look like gibberish (no vowels, or a single
+     * repeated character ≥ 5 chars long).  Default 0.60 = flag when ≥ 60%
+     * of words are gibberish.
+     */
+    private double gibberishWordRatio  = 0.60;
+
     /** Trigger phrases whose presence immediately flags a post as spam. */
     private List<String> spamPhrases = Arrays.asList(
         "buy now", "click here", "limited offer",
@@ -75,6 +89,16 @@ public class ModerationConfig {
     public double getCapsRatioThreshold() { return capsRatioThreshold; }
     public void setCapsRatioThreshold(double capsRatioThreshold) {
         this.capsRatioThreshold = capsRatioThreshold;
+    }
+
+    public double getCharFloodThreshold() { return charFloodThreshold; }
+    public void setCharFloodThreshold(double charFloodThreshold) {
+        this.charFloodThreshold = charFloodThreshold;
+    }
+
+    public double getGibberishWordRatio() { return gibberishWordRatio; }
+    public void setGibberishWordRatio(double gibberishWordRatio) {
+        this.gibberishWordRatio = gibberishWordRatio;
     }
 
     public List<String> getSpamPhrases() { return spamPhrases; }
