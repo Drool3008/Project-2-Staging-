@@ -202,6 +202,16 @@ public interface WeblogManager {
         boolean isWeblogStarredByUser(User user, Weblog weblog) throws WebloggerException;
 
         /**
+         * Returns the top {@code limit} Weblogs ranked by the number of distinct
+         * users who have starred them.  Uses a single aggregate GROUP BY query —
+         * no per-weblog iteration.
+         *
+         * @param limit max number of weblogs to return (e.g. 5)
+         * @return list of Object[]{Weblog, Long starCount}, descending by starCount
+         */
+        List<Object[]> getTrendingWeblogs(int limit) throws WebloggerException;
+
+        /**
          * Release any resources held by manager.
          */
         void release();

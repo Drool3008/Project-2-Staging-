@@ -194,3 +194,8 @@
 <p style="margin-top:10px;">
     <a href="<s:url action="starredEntries"/>">&#9733; View My Starred Blogs</a>
 </p>
+
+<%-- Link to trending blogs page --%>
+<p style="margin-top:5px;">
+    <a href="<s:url action="trendingBlogs"/>">&#128293; Trending Blogs</a>
+</p>

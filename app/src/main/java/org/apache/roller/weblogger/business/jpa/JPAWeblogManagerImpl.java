@@ -1043,4 +1043,22 @@ public class JPAWeblogManagerImpl implements WeblogManager {
         return q.getSingleResult() > 0;
     }
 
+    @Override
+    public List<Object[]> getTrendingWeblogs(int limit) throws WebloggerException {
+        // Single aggregate GROUP BY query — counts stars per weblog without
+        // iterating over individual weblogs in application code.
+        try {
+            jakarta.persistence.EntityManager em = strategy.getEntityManager(true);
+            Query q = em.createNamedQuery("Weblog.getTopStarredWeblogs");
+            q.setHint("jakarta.persistence.cache.retrieveMode",
+                      jakarta.persistence.CacheRetrieveMode.BYPASS);
+            q.setMaxResults(limit);
+            @SuppressWarnings("unchecked")
+            List<Object[]> results = (List<Object[]>) q.getResultList();
+            return results;
+        } catch (Exception e) {
+            throw new WebloggerException("Error fetching trending weblogs", e);
+        }
+    }
+
 }
